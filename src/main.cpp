@@ -1,5 +1,10 @@
 #include "main.h"
-#include "modules/drive.cpp"
+#include "modules/drive.h"
+#include "modules/state.h"
+
+#define INTAKE_BASE_PRIMARY -1
+#define INTAKE_BASE_SECONDARY 11
+#define SCORER_LIFT_PORT 15
 
 using namespace pros;
 
@@ -77,17 +82,85 @@ void autonomous() {}
  * task, not resume it from where it left off.
  */
 void opcontrol() {
+	State stateManager;
+
+	Motor intakeBasePrimary(INTAKE_BASE_PRIMARY, MOTOR_GEARSET);
+	Motor intakeBaseSecondary(INTAKE_BASE_SECONDARY, MOTOR_GEARSET);
+	Motor scorerLift(SCORER_LIFT_PORT, MOTOR_GEARSET);
+
 	lcd::initialize();
 	chassis.calibrate();
 
-    Task screen_task([&]() {
-        while (true) {
-            // print robot location to the brain screen
-            pros::lcd::print(0, "X: %f", chassis.getPose().x); // x
-            pros::lcd::print(1, "Y: %f", chassis.getPose().y); // y
-            pros::lcd::print(2, "Theta: %f", chassis.getPose().theta); // heading
-            // delay to save resources
-            pros::delay(20);
-        }
-    });
+	Controller master(E_CONTROLLER_MASTER);
+
+	while (true) {
+        double forward = master.get_analog(ANALOG_LEFT_Y);
+        double turn = master.get_analog(ANALOG_RIGHT_X);
+
+		if (master.get_digital_new_press(DIGITAL_B)) {
+			stateManager.intake.primaryOn = !stateManager.intake.primaryOn;
+			stateManager.intake.secondaryOn = !stateManager.intake.secondaryOn;
+		}
+
+		if (master.get_digital_new_press(DIGITAL_Y)) {
+			stateManager.intake.secondaryDirection = !stateManager.intake.secondaryDirection;
+			stateManager.intake.primaryDirection = !stateManager.intake.primaryDirection;
+		}
+
+		if (master.get_digital_new_press(DIGITAL_L1)) {
+			stateManager.direction = !stateManager.direction;
+		}
+
+		if (master.get_digital_new_press(DIGITAL_R1)) {
+			stateManager.scorer.liftOn = !stateManager.scorer.liftOn;
+		}
+
+		if (stateManager.scorer.liftOn) {
+			if (stateManager.scorer.liftDirection) {
+				// Lift up
+				scorerLift.move(stateManager.scorer.liftSpeed);
+			} else {
+				// Lift down
+				scorerLift.move(-stateManager.scorer.liftSpeed);
+			}
+		} else {
+			// Stop lift motor when toggle is off
+			scorerLift.move(0);
+		}
+
+
+		if (stateManager.intake.primaryOn) {
+			if (stateManager.intake.primaryDirection) {
+				intakeBasePrimary.move(stateManager.intake.primarySpeed);
+			} else {
+				intakeBasePrimary.move(-stateManager.intake.primarySpeed);
+			}
+		} else {
+			// Stop motors when toggle is off
+			intakeBasePrimary.move(0);
+		}
+
+		if (stateManager.intake.secondaryOn) {
+			if (stateManager.intake.secondaryDirection) {
+				intakeBaseSecondary.move(stateManager.intake.secondarySpeed);
+			} else {
+				intakeBaseSecondary.move(-stateManager.intake.secondarySpeed);
+			}
+		} else {
+			// Stop motors when toggle is off
+			intakeBaseSecondary.move(0);
+		}
+
+        chassis.arcade(forward, turn);
+
+		// pros::lcd::print(1, "Drivetrain Control", 0);	
+		// pros::lcd::print(2, "Forward: %f", forward);
+		// pros::lcd::print(3, "Turn: %f", turn);
+        // pros::lcd::print(4, "X: %f", chassis.getPose().x);
+        // pros::lcd::print(5, "Y: %f", chassis.getPose().y);
+        // pros::lcd::print(6, "Theta: %f", chassis.getPose().theta);
+
+        pros::delay(20);
+    }
+
 }

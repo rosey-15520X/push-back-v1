@@ -6,14 +6,14 @@
 using namespace pros;
 
 // Define left motors
-#define LEFT_FRONT_MOTOR_PORT 1
-#define LEFT_MIDDLE_MOTOR_PORT 1
-#define LEFT_BACK_MOTOR_PORT 2
+#define LEFT_FRONT_MOTOR_PORT 2
+#define LEFT_MIDDLE_MOTOR_PORT 3
+#define LEFT_BACK_MOTOR_PORT 4
 
 // Define right motors
-#define RIGHT_FRONT_MOTOR_PORT 3
-#define RIGHT_MIDDLE_MOTOR_PORT 4
-#define RIGHT_BACK_MOTOR_PORT 5
+#define RIGHT_FRONT_MOTOR_PORT 12
+#define RIGHT_MIDDLE_MOTOR_PORT 13
+#define RIGHT_BACK_MOTOR_PORT 14
 
 #define IMU_PORT 10
 
@@ -24,9 +24,9 @@ using namespace pros;
 #define HORIZONTAL_DRIFT 2
 
 MotorGroup left_motor_group({
-    LEFT_FRONT_MOTOR_PORT,
-    LEFT_MIDDLE_MOTOR_PORT,
-    LEFT_BACK_MOTOR_PORT
+    -LEFT_FRONT_MOTOR_PORT,
+    -LEFT_MIDDLE_MOTOR_PORT,
+    -LEFT_BACK_MOTOR_PORT
 }, MOTOR_GEARSET, v5::MotorUnits::degrees);
 
 MotorGroup right_motor_group({
