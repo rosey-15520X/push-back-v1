@@ -6,16 +6,16 @@
 using namespace pros;
 
 // Define left motors
-#define LEFT_FRONT_MOTOR_PORT 2
-#define LEFT_MIDDLE_MOTOR_PORT 3
-#define LEFT_BACK_MOTOR_PORT 4
+#define LEFT_FRONT_MOTOR_PORT 13
+#define LEFT_MIDDLE_MOTOR_PORT 12
+#define LEFT_BACK_MOTOR_PORT 11
 
 // Define right motors
-#define RIGHT_FRONT_MOTOR_PORT 12
-#define RIGHT_MIDDLE_MOTOR_PORT 13
-#define RIGHT_BACK_MOTOR_PORT 14
+#define RIGHT_FRONT_MOTOR_PORT 10
+#define RIGHT_MIDDLE_MOTOR_PORT 9
+#define RIGHT_BACK_MOTOR_PORT 8
 
-#define IMU_PORT 10
+#define IMU_PORT 16
 
 #define MOTOR_GEARSET v5::MotorGears::green
 #define TRACK_WIDTH 14.5

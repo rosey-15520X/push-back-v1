@@ -1,0 +1,31 @@
+68.311, -46.537, 20
+67.724, -44.664, 20
+66.072, -43.59, 48.282
+64.114, -43.208, 78.163
+62.117, -43.143, 90.166
+60.119, -43.244, 92.584
+58.129, -43.436, 89.799
+56.144, -43.684, 86.925
+54.165, -43.969, 83.952
+52.188, -44.273, 80.87
+50.213, -44.588, 77.665
+48.238, -44.905, 74.323
+46.263, -45.22, 70.823
+44.287, -45.527, 67.141
+42.308, -45.82, 63.245
+40.328, -46.096, 59.093
+38.344, -46.353, 54.625
+36.358, -46.584, 49.759
+34.368, -46.786, 44.362
+32.375, -46.958, 38.209
+30.38, -47.096, 30.854
+28.382, -47.189, 21.071
+26.635, -47.239, 0
+26.635, -47.239, 0
+6.643, -47.813, 0
+endData
+127
+100
+200
+68.311, -46.537, 68.311, -38.662, 47.473, -46.888, 26.635, -47.239
+#PATH.JERRYIO-DATA {"appVersion":"0.10.0","format":"LemLib v0.5","gc":{"robotWidth":11.811023622047244,"robotHeight":11.811023622047244,"robotIsHolonomic":false,"showRobot":false,"uol":2.54,"pointDensity":2,"controlMagnetDistance":0.7750015500031,"fieldImage":{"displayName":"V5RC 2026 - Push Back","signature":"V5RC-PushBack-H2H-TopDownHighlighted-TileColor66_71","origin":{"__type":"built-in"}},"coordinateSystem":"VEX Gaming Positioning System"},"paths":[{"segments":[{"controls":[{"uid":"8MhXYMEtgB","x":68.3109951959976,"y":-46.53651427596821,"lock":false,"visible":true,"heading":0,"__type":"end-point"},{"uid":"34woLEzTkz","x":68.3109951959976,"y":-38.662498527936705,"lock":false,"visible":true,"__type":"control"},{"uid":"1miaVxQmGc","x":47.473051089732905,"y":-46.887715581129974,"lock":false,"visible":true,"__type":"control"},{"uid":"7iX7KxuEE8","x":26.63510698346822,"y":-47.23891688629173,"lock":false,"visible":true,"heading":0,"__type":"end-point"}],"speedProfiles":[],"lookaheadKeyframes":[],"uid":"7Ko63SHuiW"}],"pc":{"speedLimit":{"minLimit":{"value":0,"label":"0"},"maxLimit":{"value":127,"label":"127"},"step":1,"from":20,"to":100},"bentRateApplicableRange":{"minLimit":{"value":0,"label":"0"},"maxLimit":{"value":1,"label":"1"},"step":0.001,"from":0,"to":0.1},"maxDecelerationRate":127},"name":"Path","uid":"xWIQUkkiBv","lock":false,"visible":true}]}

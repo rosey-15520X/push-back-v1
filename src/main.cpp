@@ -1,28 +1,27 @@
 #include "main.h"
 #include "modules/drive.h"
+#include "modules/intake.h"
+#include "modules/pneumatics.h"
+#include "modules/scorer.h"
 #include "modules/state.h"
+#include "lemlib/asset.hpp"
+#include <string>
 
-#define INTAKE_BASE_PRIMARY -1
-#define INTAKE_BASE_SECONDARY 11
-#define SCORER_LIFT_PORT 15
+// Declare path assets (files must be in static/ folder)
+ASSET(GOTOLONGGOAL_txt)
+ASSET(GETBALL_txt)
+
+// Motor ports
+#define INTAKE_BASE_PRIMARY -7
+#define INTAKE_BASE_SECONDARY 20
+#define SCORER_LIFT_PORT 1
+
+// Pneumatics ADI ports (3-wire)
+#define BLOCK_PISTON_PORT 'G'
+#define MIDDLE_GOAL_PISTON_PORT 'H'
+#define LOADER_PISTON_PORT 'F'
 
 using namespace pros;
-
-/**
- * A callback function for LLEMU's center button.
- *
- * When this callback is fired, it will toggle line 2 of the LCD text between
- * "I was pressed!" and nothing.
- */
-void on_center_button() {
-	static bool pressed = false;
-	pressed = !pressed;
-	if (pressed) {
-		pros::lcd::set_text(2, "I was pressed!");
-	} else {
-		pros::lcd::clear_line(2);
-	}
-}
 
 /**
  * Runs initialization code. This occurs as soon as the program is started.
@@ -31,10 +30,13 @@ void on_center_button() {
  * to keep execution time for this mode under a few seconds.
  */
 void initialize() {
-	pros::lcd::initialize();
-	pros::lcd::set_text(1, "Hello PROS User!");
-
-	pros::lcd::register_btn1_cb(on_center_button);
+  lcd::initialize();
+  lcd::print(0, "Calibrating IMU...");
+  
+  // Calibrate chassis IMU - IMPORTANT: do this here so it's ready for auton
+  chassis.calibrate();
+  
+  lcd::print(0, "IMU Calibrated!");
 }
 
 /**
@@ -66,7 +68,50 @@ void competition_initialize() {}
  * will be stopped. Re-enabling the robot will restart the task, not re-start it
  * from where it left off.
  */
-void autonomous() {}
+void autonomous() {
+  lcd::print(1, "AUTON STARTED");
+  State state;
+
+	Motor intakeBasePrimary(INTAKE_BASE_PRIMARY, MOTOR_GEARSET);
+	Motor intakeBaseSecondary(INTAKE_BASE_SECONDARY, MOTOR_GEARSET);
+	Motor scorerLift(SCORER_LIFT_PORT, MOTOR_GEARSET);
+  
+	// Initialize pneumatics (ADI digital outputs)
+	adi::DigitalOut blockPiston(BLOCK_PISTON_PORT);
+	adi::DigitalOut middleGoalPiston(MIDDLE_GOAL_PISTON_PORT);
+	adi::DigitalOut loaderPiston(LOADER_PISTON_PORT);
+  
+	// Initialize handlers
+	IntakeHandler intake(intakeBasePrimary, intakeBaseSecondary, state.intake);
+	ScorerHandler scorer(scorerLift, state.scorer);
+	PneumaticsHandler pneumatics(blockPiston, middleGoalPiston, loaderPiston,
+								 state.scorer, state.intake, state.loader);
+  
+	chassis.setPose(46.771, -22.889, 0);  // Match GETBALL.txt starting point
+    pneumatics.init();
+	pneumatics.setBlock(true);
+	pneumatics.setMiddleGoal(false);
+	pneumatics.setLoader(true);
+  lcd::print(2, "Following GETBALL...");
+
+    // Follow path to get balls
+    chassis.follow(GETBALL_txt, 15, 5000, true);
+    lcd::print(2, "GETBALL done");
+	intake.toggle();
+	intake.update();
+	pros::delay(1000);
+	intake.toggle();
+	intake.update();
+	pros::delay(1000);
+
+	pneumatics.setBlock(false);
+	pneumatics.setLoader(false);
+    lcd::print(0, 0, "GOING TO LONG GOAL");
+    // Follow path to goal
+    chassis.follow(GOTOLONGGOAL_txt, 15, 5000, true);
+	intake.toggle();
+}
+
 
 /**
  * Runs the operator control code. This function will be started in its own task
@@ -82,85 +127,122 @@ void autonomous() {}
  * task, not resume it from where it left off.
  */
 void opcontrol() {
-	State stateManager;
+  // Initialize state
+  State state;
 
-	Motor intakeBasePrimary(INTAKE_BASE_PRIMARY, MOTOR_GEARSET);
-	Motor intakeBaseSecondary(INTAKE_BASE_SECONDARY, MOTOR_GEARSET);
-	Motor scorerLift(SCORER_LIFT_PORT, MOTOR_GEARSET);
+  // Initialize motors
+  Motor intakeBasePrimary(INTAKE_BASE_PRIMARY, MOTOR_GEARSET);
+  Motor intakeBaseSecondary(INTAKE_BASE_SECONDARY, MOTOR_GEARSET);
+  Motor scorerLift(SCORER_LIFT_PORT, MOTOR_GEARSET);
 
-	lcd::initialize();
-	chassis.calibrate();
+  // Initialize pneumatics (ADI digital outputs)
+  adi::DigitalOut blockPiston(BLOCK_PISTON_PORT);
+  adi::DigitalOut middleGoalPiston(MIDDLE_GOAL_PISTON_PORT);
+  adi::DigitalOut loaderPiston(LOADER_PISTON_PORT);
 
-	Controller master(E_CONTROLLER_MASTER);
+  // Initialize handlers
+  IntakeHandler intake(intakeBasePrimary, intakeBaseSecondary, state.intake);
+  ScorerHandler scorer(scorerLift, state.scorer);
+  PneumaticsHandler pneumatics(blockPiston, middleGoalPiston, loaderPiston,
+                               state.scorer, state.intake, state.loader);
 
-	while (true) {
-        double forward = master.get_analog(ANALOG_LEFT_Y);
-        double turn = master.get_analog(ANALOG_RIGHT_X);
+  // Initialize pneumatics to match state
+  pneumatics.init();
 
-		if (master.get_digital_new_press(DIGITAL_B)) {
-			stateManager.intake.primaryOn = !stateManager.intake.primaryOn;
-			stateManager.intake.secondaryOn = !stateManager.intake.secondaryOn;
-		}
+  Controller master(E_CONTROLLER_MASTER);
 
-		if (master.get_digital_new_press(DIGITAL_Y)) {
-			stateManager.intake.secondaryDirection = !stateManager.intake.secondaryDirection;
-			stateManager.intake.primaryDirection = !stateManager.intake.primaryDirection;
-		}
+  master.set_text(0, 0, "INITIALIZED   ");
+  master.set_text(1, 0, "READY   ");
+  master.set_text(2, 0, "15520X        ");
 
-		if (master.get_digital_new_press(DIGITAL_L1)) {
-			stateManager.direction = !stateManager.direction;
-		}
+  int cycle = 0;
 
-		if (master.get_digital_new_press(DIGITAL_R1)) {
-			stateManager.scorer.liftOn = !stateManager.scorer.liftOn;
-		}
-
-		if (stateManager.scorer.liftOn) {
-			if (stateManager.scorer.liftDirection) {
-				// Lift up
-				scorerLift.move(stateManager.scorer.liftSpeed);
-			} else {
-				// Lift down
-				scorerLift.move(-stateManager.scorer.liftSpeed);
-			}
-		} else {
-			// Stop lift motor when toggle is off
-			scorerLift.move(0);
-		}
-
-
-		if (stateManager.intake.primaryOn) {
-			if (stateManager.intake.primaryDirection) {
-				intakeBasePrimary.move(stateManager.intake.primarySpeed);
-			} else {
-				intakeBasePrimary.move(-stateManager.intake.primarySpeed);
-			}
-		} else {
-			// Stop motors when toggle is off
-			intakeBasePrimary.move(0);
-		}
-
-		if (stateManager.intake.secondaryOn) {
-			if (stateManager.intake.secondaryDirection) {
-				intakeBaseSecondary.move(stateManager.intake.secondarySpeed);
-			} else {
-				intakeBaseSecondary.move(-stateManager.intake.secondarySpeed);
-			}
-		} else {
-			// Stop motors when toggle is off
-			intakeBaseSecondary.move(0);
-		}
-
-        chassis.arcade(forward, turn);
-
-		// pros::lcd::print(1, "Drivetrain Control", 0);	
-		// pros::lcd::print(2, "Forward: %f", forward);
-		// pros::lcd::print(3, "Turn: %f", turn);
-        // pros::lcd::print(4, "X: %f", chassis.getPose().x);
-        // pros::lcd::print(5, "Y: %f", chassis.getPose().y);
-        // pros::lcd::print(6, "Theta: %f", chassis.getPose().theta);
-
-        pros::delay(20);
+  while (true) {
+    if (cycle % 25 == 0) {
+      master.set_text(0, 0, "INITIALIZED   ");
+      master.set_text(2, 0, "15520X        ");
     }
 
+    cycle++;
+
+    // Drive control
+    double forward = master.get_analog(ANALOG_LEFT_Y);
+    double turn = master.get_analog(ANALOG_RIGHT_X);
+
+    // if (!state.driveDirection) {
+    // 	forward = -forward;
+    // 	// turn = -turn;
+
+    // 	if (cycle % 25 == 0) {
+    // 		// master.set_text(1, 8, "F" + std::to_string(round(forward *
+    // 100) / 100) + " T" + std::to_string(round(turn * 100) / 100));
+    // 	}
+    // }
+
+    // master.set_text(2, 0, "F" + std::to_string(round(forward * 100) / 100) +
+    // " T" + std::to_string(round(turn * 100) / 100));
+
+    // Toggle drive direction
+    if (master.get_digital_new_press(DIGITAL_Y)) {
+      master.clear_line(1);
+      master.set_text(1, 0, "SCORER_REVERSE");
+      scorer.toggleDirection();
+    }
+
+    // Intake controls
+    if (master.get_digital_new_press(DIGITAL_R1)) {
+      master.clear_line(1);
+      master.set_text(1, 0, "INTAKE_TOGGLE");
+      intake.toggle();
+    }
+
+    if (master.get_digital_new_press(DIGITAL_A)) {
+      master.clear_line(1);
+      master.set_text(1, 0, "INTAKE_REVERSE");
+      intake.toggleDirection();
+    }
+
+    // Scorer controls
+    // if (master.get_digital_new_press(DIGITAL_L1)) {
+    // 	master.set_text(1, 0, "SCR_REV  ");
+    // 	scorer.toggleDirection();
+    // }
+
+    if (master.get_digital_new_press(DIGITAL_R2)) {
+      master.clear_line(1);
+      master.set_text(1, 0, "SCORER_TOGGLE");
+      scorer.toggle();
+    }
+
+    // Pneumatics controls
+    if (master.get_digital_new_press(DIGITAL_L2)) {
+      master.clear_line(1);
+      master.set_text(1, 0, "BLOCK_TOGGLE");
+      pneumatics.toggleBlock();
+    }
+
+    if (master.get_digital_new_press(DIGITAL_B)) {
+      master.clear_line(1);
+      master.set_text(1, 0, "MIDDLE_GOAL_TOGGLE");
+      pneumatics.toggleMiddleGoal();
+    }
+
+    if (master.get_digital_new_press(DIGITAL_L1)) {
+      master.clear_line(1);
+      master.set_text(1, 0, "LOADER_TOGGLE");
+      pneumatics.toggleLoader();
+    }
+
+    // Update all handlers
+    intake.update();
+    scorer.update();
+
+    // Drive
+    chassis.arcade(forward, turn);
+
+    // Update LCD with current state
+    // updateLCD(state);
+
+    pros::delay(20);
+  }
 }

@@ -15,16 +15,25 @@ struct IntakeState {
     bool secondaryDirection = true;
     bool secondaryOn = false;
     int secondarySpeed = INTAKE_BASE_SECONDARY_SPEED;
+
+    bool middleGoal = false;
 };
 
 struct ScorerState {
     bool liftDirection = true;
     bool liftOn = false;
     int liftSpeed = SCORER_SPEED;
+
+    bool block = false;
+};
+
+struct LoaderState {
+    bool contracted = false;
 };
 
 struct State {
-    bool direction = true;
+    bool driveDirection = true;
     IntakeState intake;
     ScorerState scorer;
+    LoaderState loader;
 };
