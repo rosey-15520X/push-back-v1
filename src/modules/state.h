@@ -31,9 +31,14 @@ struct LoaderState {
     bool contracted = false;
 };
 
+struct ArmState {
+    bool extended = false; // default = contracted
+};
+
 struct State {
     bool driveDirection = true;
     IntakeState intake;
     ScorerState scorer;
     LoaderState loader;
+    ArmState arm; 
 };

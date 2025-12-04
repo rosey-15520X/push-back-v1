@@ -13,13 +13,14 @@ ASSET(GETBALL_txt)
 
 // Motor ports
 #define INTAKE_BASE_PRIMARY -7
-#define INTAKE_BASE_SECONDARY 20
+#define INTAKE_BASE_SECONDARY 18
 #define SCORER_LIFT_PORT 1
 
 // Pneumatics ADI ports (3-wire)
 #define BLOCK_PISTON_PORT 'G'
 #define MIDDLE_GOAL_PISTON_PORT 'H'
 #define LOADER_PISTON_PORT 'F'
+#define ARM_PISTON_PORT 'E'
 
 using namespace pros;
 
@@ -69,48 +70,13 @@ void competition_initialize() {}
  * from where it left off.
  */
 void autonomous() {
-  lcd::print(1, "AUTON STARTED");
-  State state;
-
-	Motor intakeBasePrimary(INTAKE_BASE_PRIMARY, MOTOR_GEARSET);
-	Motor intakeBaseSecondary(INTAKE_BASE_SECONDARY, MOTOR_GEARSET);
-	Motor scorerLift(SCORER_LIFT_PORT, MOTOR_GEARSET);
-  
-	// Initialize pneumatics (ADI digital outputs)
-	adi::DigitalOut blockPiston(BLOCK_PISTON_PORT);
-	adi::DigitalOut middleGoalPiston(MIDDLE_GOAL_PISTON_PORT);
-	adi::DigitalOut loaderPiston(LOADER_PISTON_PORT);
-  
-	// Initialize handlers
-	IntakeHandler intake(intakeBasePrimary, intakeBaseSecondary, state.intake);
-	ScorerHandler scorer(scorerLift, state.scorer);
-	PneumaticsHandler pneumatics(blockPiston, middleGoalPiston, loaderPiston,
-								 state.scorer, state.intake, state.loader);
-  
-	chassis.setPose(46.771, -22.889, 0);  // Match GETBALL.txt starting point
-    pneumatics.init();
-	pneumatics.setBlock(true);
-	pneumatics.setMiddleGoal(false);
-	pneumatics.setLoader(true);
-  lcd::print(2, "Following GETBALL...");
-
-    // Follow path to get balls
-    chassis.follow(GETBALL_txt, 15, 5000, true);
-    lcd::print(2, "GETBALL done");
-	intake.toggle();
-	intake.update();
-	pros::delay(1000);
-	intake.toggle();
-	intake.update();
-	pros::delay(1000);
-
-	pneumatics.setBlock(false);
-	pneumatics.setLoader(false);
-    lcd::print(0, 0, "GOING TO LONG GOAL");
-    // Follow path to goal
-    chassis.follow(GOTOLONGGOAL_txt, 15, 5000, true);
-	intake.toggle();
+    // set position to x:0, y:0, heading:0
+    chassis.setPose(0, 0, 0);
+    // turn to face heading 90 with a very long timeout
+    chassis.turnToHeading(90, 5000);
+    chassis.turnToHeading(0, 100000);
 }
+
 
 
 /**
@@ -139,12 +105,12 @@ void opcontrol() {
   adi::DigitalOut blockPiston(BLOCK_PISTON_PORT);
   adi::DigitalOut middleGoalPiston(MIDDLE_GOAL_PISTON_PORT);
   adi::DigitalOut loaderPiston(LOADER_PISTON_PORT);
+  adi::DigitalOut armPiston(ARM_PISTON_PORT);
 
   // Initialize handlers
-  IntakeHandler intake(intakeBasePrimary, intakeBaseSecondary, state.intake);
+  ; IntakeHandler intake(intakeBasePrimary, intakeBaseSecondary, state.intake);
   ScorerHandler scorer(scorerLift, state.scorer);
-  PneumaticsHandler pneumatics(blockPiston, middleGoalPiston, loaderPiston,
-                               state.scorer, state.intake, state.loader);
+  PneumaticsHandler pneumatics(blockPiston, middleGoalPiston, loaderPiston, armPiston, state.scorer, state.intake, state.loader, state.arm);
 
   // Initialize pneumatics to match state
   pneumatics.init();
@@ -231,6 +197,12 @@ void opcontrol() {
       master.clear_line(1);
       master.set_text(1, 0, "LOADER_TOGGLE");
       pneumatics.toggleLoader();
+    }
+
+    if (master.get_digital_new_press(DIGITAL_LEFT)) {
+      master.clear_line(1);
+      master.set_text(1, 0, "ARM TOGGLE");
+      pneumatics.toggleArm();
     }
 
     // Update all handlers
