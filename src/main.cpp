@@ -7,6 +7,8 @@
 #include "lemlib/asset.hpp"
 #include <string>
 
+int autonSelector = 0;  // 0 = match auton, 1 = skills
+
 // Declare path assets (files must be in static/ folder)
 ASSET(GOTOLONGGOAL_txt)
 ASSET(GETBALL_txt)
@@ -15,6 +17,13 @@ ASSET(LOADBALLS_txt)
 ASSET(MOVETOLONGGOAL_txt)
 ASSET(PARKROBOTFROMLONGGOAL_txt)
 
+ASSET(SKLDBALL_txt)
+ASSET(SKLDBALL2_txt)
+ASSET(SKLDBALL3_txt)
+
+ASSET(SKSHTBALL_txt)
+ASSET(SKSHTBALL2_txt)
+ASSET(SKSHTBALL3_txt)
 // Motor ports
 #define INTAKE_BASE_PRIMARY -7
 #define INTAKE_BASE_SECONDARY 18
@@ -74,8 +83,40 @@ void competition_initialize() {}
  * from where it left off.
  */
 
- void autonomous() {
-  lcd::print(1, "AUTON STARTED");
+ void initRobot(PneumaticsHandler& pneumatics) {
+  lcd::print(0, "HEY, WE ARE");
+  lcd::print(2, 0, "15520X");
+  lcd::print(1, "LETS GO!");
+
+  pneumatics.init();
+  pneumatics.setBlock(true); // block new balls from flying out
+  pneumatics.setMiddleGoal(false); // close middle goal
+  pneumatics.setLoader(true); // get ready to load!
+  pneumatics.setArm(false); // no arm please
+ }
+
+ void shootBalls(IntakeHandler& intake, int time) {
+  intake.setPrimaryOn(true);
+  intake.setSecondaryOn(true);
+  intake.update();
+  pros::delay(time);
+  intake.setPrimaryOn(false);
+  intake.setSecondaryOn(false);
+  intake.update();
+ }
+
+void loadBalls(IntakeHandler& intake, int time) {
+  intake.setPrimaryOn(true);
+  intake.setSecondaryOn(true);
+  intake.update();
+  pros::delay(time);
+  intake.setPrimaryOn(false);
+  intake.setSecondaryOn(false);
+  intake.update();
+}
+
+ void autonMatch() {
+  lcd::print(3, "AUTON MATCH");
   State state;
 
 	Motor intakeBasePrimary(INTAKE_BASE_PRIMARY, MOTOR_GEARSET);
@@ -96,32 +137,68 @@ void competition_initialize() {}
   
                 //  58.69, -9.57, 97.067
 
-	chassis.setPose(58.69, -9.57, 97.067);  // Match GETBALL.txt starting point
-  pneumatics.init();
-	pneumatics.setBlock(true);
-	pneumatics.setMiddleGoal(false);
-	pneumatics.setLoader(true);
-  lcd::print(2, "Loading balls...");
-
+	chassis.setPose(50.22, -14.966, 270);  // Match GETBALL.txt starting point
+  initRobot(pneumatics);
     // Follow path to get balls
-    chassis.follow(LOADBALLS_txt, 15, 5000, true);
-    lcd::print(2, "Loading balls done");
-	intake.toggle();
-	intake.update();
-	pros::delay(1000);
-	intake.toggle();
-	intake.update();
-	pros::delay(1000);
+  chassis.follow(LOADBALLS_txt, 15, 3000, true);
+  loadBalls(intake, 1000);
 
 	pneumatics.setBlock(false);
 	pneumatics.setLoader(false);    // Follow path to goal
-    chassis.follow(MOVETOLONGGOAL_txt, 15, 5000, true);
-	intake.toggle();
-  intake.update();
-  pros::delay(10000);
-  intake.toggle();
-  intake.update();
-  chassis.follow(PARKROBOTFROMLONGGOAL_txt, 15, 5000, true);
+    chassis.follow(MOVETOLONGGOAL_txt, 15, 3000, true);
+  shootBalls(intake, 1000);
+  chassis.follow(PARKROBOTFROMLONGGOAL_txt, 15, 3000, true);
+}
+
+void autonSkills() {
+  lcd::print(3, "AUTON SKILLS");
+  State state;
+
+	Motor intakeBasePrimary(INTAKE_BASE_PRIMARY, MOTOR_GEARSET);
+	Motor intakeBaseSecondary(INTAKE_BASE_SECONDARY, MOTOR_GEARSET);
+	Motor scorerLift(SCORER_LIFT_PORT, MOTOR_GEARSET);
+  
+	// Initialize pneumatics (ADI digital outputs)
+	adi::DigitalOut blockPiston(BLOCK_PISTON_PORT);
+	adi::DigitalOut middleGoalPiston(MIDDLE_GOAL_PISTON_PORT);
+	adi::DigitalOut loaderPiston(LOADER_PISTON_PORT);
+	adi::DigitalOut armPiston(ARM_PISTON_PORT);
+  
+	// Initialize handlers
+	IntakeHandler intake(intakeBasePrimary, intakeBaseSecondary, state.intake);
+	ScorerHandler scorer(scorerLift, state.scorer);
+	PneumaticsHandler pneumatics(blockPiston, middleGoalPiston, loaderPiston, armPiston,
+								 state.scorer, state.intake, state.loader, state.arm);
+  chassis.setPose(0, 0, 0);
+  initRobot(pneumatics);
+
+  chassis.follow(SKLDBALL_txt, 15, 5000, true);
+  loadBalls(intake, 1000);
+  shootBalls(intake, 10000);
+  chassis.follow(SKSHTBALL_txt, 15, 5000, true);
+  loadBalls(intake, 1000);
+  shootBalls(intake, 10000);
+  chassis.follow(SKLDBALL2_txt, 15, 5000, true);
+  loadBalls(intake, 1000);
+  shootBalls(intake, 10000);
+  chassis.follow(SKSHTBALL2_txt, 15, 5000, true);
+  loadBalls(intake, 1000);
+  shootBalls(intake, 10000);
+  chassis.follow(SKLDBALL3_txt, 15, 5000, true);
+  loadBalls(intake, 1000);
+  shootBalls(intake, 10000);
+  chassis.follow(SKSHTBALL3_txt, 15, 5000, true);
+  loadBalls(intake, 1000);
+  shootBalls(intake, 10000);
+
+}
+
+void autonomous() {
+  if (autonSelector == 0) {
+    autonMatch();
+  } else if (autonSelector == 1) {
+    autonSkills();
+  }
 }
 
 
@@ -138,6 +215,7 @@ void competition_initialize() {}
  * operator control task will be stopped. Re-enabling the robot will restart the
  * task, not resume it from where it left off.
  */
+
 void opcontrol() {
   // Initialize state
   State state;
@@ -163,16 +241,17 @@ void opcontrol() {
 
   Controller master(E_CONTROLLER_MASTER);
 
-  master.set_text(0, 0, "INITIALIZED   ");
-  master.set_text(1, 0, "READY   ");
-  master.set_text(2, 0, "15520X        ");
-
   int cycle = 0;
 
   while (true) {
     if (cycle % 25 == 0) {
-      master.set_text(0, 0, "INITIALIZED   ");
-      master.set_text(2, 0, "15520X        ");
+      // master.set_text(2, 0, "15520X        ");
+      bool isReversed = !state.scorer.liftDirection;
+      if (isReversed) {
+        master.set_text(0, 0, "REVERSED");
+      } else {
+        master.set_text(0, 0, "FORWARD ");
+      }
     }
 
     cycle++;
