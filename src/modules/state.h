@@ -3,7 +3,7 @@
 #define INTAKE_BASE_PRIMARY_SPEED 127
 #define INTAKE_BASE_SECONDARY_SPEED 127
 
-#define SCORER_SPEED 127
+#define SCORER_SPEED 100
 
 struct IntakeState {
     // Intake base
@@ -15,8 +15,6 @@ struct IntakeState {
     bool secondaryDirection = true;
     bool secondaryOn = false;
     int secondarySpeed = INTAKE_BASE_SECONDARY_SPEED;
-
-    bool middleGoal = false;
 };
 
 struct ScorerState {

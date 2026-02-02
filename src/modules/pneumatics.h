@@ -8,7 +8,6 @@ using namespace pros;
 class PneumaticsHandler {
 private:
     adi::DigitalOut& blockPiston;         // ScorerState.block
-    adi::DigitalOut& middleGoalPiston;    // IntakeState.middleGoal
     adi::DigitalOut& loaderPiston;        // LoaderState.contracted
     adi::DigitalOut& armPiston;           // ArmState.extended
 
@@ -20,7 +19,6 @@ private:
 public:
     PneumaticsHandler(
         adi::DigitalOut& block,
-        adi::DigitalOut& middleGoal,
         adi::DigitalOut& loader,
         adi::DigitalOut& arm,
         ScorerState& scorer,
@@ -28,7 +26,6 @@ public:
         LoaderState& loaderSt,
         ArmState& armSt
     ) : blockPiston(block),
-        middleGoalPiston(middleGoal),
         loaderPiston(loader),
         armPiston(arm),
         scorerState(scorer),
@@ -41,11 +38,6 @@ public:
     void toggleBlock() {
         scorerState.block = !scorerState.block;
         blockPiston.set_value(scorerState.block);
-    }
-
-    void toggleMiddleGoal() {
-        intakeState.middleGoal = !intakeState.middleGoal;
-        middleGoalPiston.set_value(intakeState.middleGoal);
     }
 
     void toggleLoader() {
@@ -66,11 +58,6 @@ public:
         blockPiston.set_value(extended);
     }
 
-    void setMiddleGoal(bool extended) {
-        intakeState.middleGoal = extended;
-        middleGoalPiston.set_value(extended);
-    }
-
     void setLoader(bool contracted) {
         loaderState.contracted = contracted;
         loaderPiston.set_value(contracted);
@@ -86,7 +73,6 @@ public:
 
     void init() {
         blockPiston.set_value(scorerState.block);
-        middleGoalPiston.set_value(intakeState.middleGoal);
         loaderPiston.set_value(loaderState.contracted);
         armPiston.set_value(armState.extended);
     }

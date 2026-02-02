@@ -4,38 +4,91 @@
 #include "modules/pneumatics.h"
 #include "modules/scorer.h"
 #include "modules/state.h"
-#include "lemlib/asset.hpp"
-#include <string>
+#include "auto/auton_period.h"
 
-int autonSelector = 0;  // 0 = match auton, 1 = skills
+// ============================================================================
+// AUTON SELECTOR
+// FLAG: Selector is shown in initialize() so it's always available, even 
+//       without a competition switch. This allows testing autons anytime.
+//       Move to competition_initialize() if you only want it during matches.
+// ============================================================================
+int autonSelector = 0;
+bool isRedAlliance = true;  // Toggle with middle button
 
-// Declare path assets (files must be in static/ folder)
-ASSET(GOTOLONGGOAL_txt)
-ASSET(GETBALL_txt)
+const char* autonNames[] = {"Left 1 Goal", "Left 2 Goals", "Left 3 Goals", "Right 1 Goal", "Right 2 Goals", "Right 3 Goals", "Skills", "None"};
+const int AUTON_COUNT = 4;
 
-ASSET(LOADBALLS_txt)
-ASSET(MOVETOLONGGOAL_txt)
-ASSET(PARKROBOTFROMLONGGOAL_txt)
+void updateAutonDisplay() {
+    pros::lcd::print(1, "< %s >", autonNames[autonSelector]);
+    pros::lcd::print(2, "Alliance: %s", isRedAlliance ? "RED" : "BLUE");
+}
 
-ASSET(SKLDBALL_txt)
-ASSET(SKLDBALL2_txt)
-ASSET(SKLDBALL3_txt)
+void on_left_button() {
+    autonSelector = (autonSelector - 1 + AUTON_COUNT) % AUTON_COUNT;
+    updateAutonDisplay();
+}
 
-ASSET(SKSHTBALL_txt)
-ASSET(SKSHTBALL2_txt)
-ASSET(SKSHTBALL3_txt)
+void on_center_button() {
+    isRedAlliance = !isRedAlliance;
+    updateAutonDisplay();
+}
+
+void on_right_button() {
+    autonSelector = (autonSelector + 1) % AUTON_COUNT;
+    updateAutonDisplay();
+}
+
 // Motor ports
 #define INTAKE_BASE_PRIMARY -7
-#define INTAKE_BASE_SECONDARY 18
-#define SCORER_LIFT_PORT 1
+#define INTAKE_BASE_SECONDARY -4
+#define SCORER_LIFT_PORT 9
 
 // Pneumatics ADI ports (3-wire)
 #define BLOCK_PISTON_PORT 'G'
-#define MIDDLE_GOAL_PISTON_PORT 'H'
 #define LOADER_PISTON_PORT 'F'
 #define ARM_PISTON_PORT 'E'
 
+#define OPTICAL_PORT_TOP 1
+#define OPTICAL_PORT_BOTTOM 2
+
 using namespace pros;
+
+// ============================================================================
+// ROBOT STRUCT - Holds all robot components
+// ============================================================================
+struct Robot {
+    State state;
+    
+    // Motors
+    Motor intakeBasePrimary{INTAKE_BASE_PRIMARY, MOTOR_GEARSET};
+    Motor intakeBaseSecondary{INTAKE_BASE_SECONDARY, MOTOR_GEARSET};
+    Motor scorerLift{SCORER_LIFT_PORT, MOTOR_GEARSET};
+    
+    // Pneumatics
+    adi::DigitalOut blockPiston{BLOCK_PISTON_PORT};
+    adi::DigitalOut loaderPiston{LOADER_PISTON_PORT};
+    adi::DigitalOut armPiston{ARM_PISTON_PORT};
+    
+    // Sensors
+    Optical opticalSensorTop{OPTICAL_PORT_TOP};
+    Optical opticalSensorBottom{OPTICAL_PORT_BOTTOM};
+    
+    // Handlers (initialized in constructor)
+    PneumaticsHandler pneumatics;
+    IntakeHandler intake;
+    ScorerHandler scorer;
+    
+    // Controller
+    Controller master{E_CONTROLLER_MASTER};
+    
+    Robot() : 
+        pneumatics(blockPiston, loaderPiston, armPiston, state.scorer, state.intake, state.loader, state.arm),
+        intake(intakeBasePrimary, intakeBaseSecondary, state.intake),
+        scorer(scorerLift, state.scorer) 
+    {
+        pneumatics.init();
+    }
+};
 
 /**
  * Runs initialization code. This occurs as soon as the program is started.
@@ -45,12 +98,17 @@ using namespace pros;
  */
 void initialize() {
   lcd::initialize();
-  lcd::print(0, "Calibrating IMU...");
+  lcd::print(0, "[INFO] Initializing......");
   
   // Calibrate chassis IMU - IMPORTANT: do this here so it's ready for auton
   chassis.calibrate();
   
-  lcd::print(0, "IMU Calibrated!");
+  // Show auton selector after calibration
+  lcd::print(0, "[PROMPT] SELECT AUTON:");
+  updateAutonDisplay();
+  lcd::register_btn0_cb(on_left_button);   // Left button: prev auton
+  lcd::register_btn1_cb(on_center_button); // Center button: toggle alliance
+  lcd::register_btn2_cb(on_right_button);  // Right button: next auton
 }
 
 /**
@@ -83,121 +141,33 @@ void competition_initialize() {}
  * from where it left off.
  */
 
- void initRobot(PneumaticsHandler& pneumatics) {
-  lcd::print(0, "HEY, WE ARE");
-  lcd::print(2, 0, "15520X");
-  lcd::print(1, "LETS GO!");
-
-  pneumatics.init();
-  pneumatics.setBlock(true); // block new balls from flying out
-  pneumatics.setMiddleGoal(false); // close middle goal
-  pneumatics.setLoader(true); // get ready to load!
-  pneumatics.setArm(false); // no arm please
- }
-
- void shootBalls(IntakeHandler& intake, int time) {
-  intake.setPrimaryOn(true);
-  intake.setSecondaryOn(true);
-  intake.update();
-  pros::delay(time);
-  intake.setPrimaryOn(false);
-  intake.setSecondaryOn(false);
-  intake.update();
- }
-
-void loadBalls(IntakeHandler& intake, int time) {
-  intake.setPrimaryOn(true);
-  intake.setSecondaryOn(true);
-  intake.update();
-  pros::delay(time);
-  intake.setPrimaryOn(false);
-  intake.setSecondaryOn(false);
-  intake.update();
-}
-
- void autonMatch() {
-  lcd::print(3, "AUTON MATCH");
-  State state;
-
-	Motor intakeBasePrimary(INTAKE_BASE_PRIMARY, MOTOR_GEARSET);
-	Motor intakeBaseSecondary(INTAKE_BASE_SECONDARY, MOTOR_GEARSET);
-	Motor scorerLift(SCORER_LIFT_PORT, MOTOR_GEARSET);
-  
-	// Initialize pneumatics (ADI digital outputs)
-	adi::DigitalOut blockPiston(BLOCK_PISTON_PORT);
-	adi::DigitalOut middleGoalPiston(MIDDLE_GOAL_PISTON_PORT);
-	adi::DigitalOut loaderPiston(LOADER_PISTON_PORT);
-	adi::DigitalOut armPiston(ARM_PISTON_PORT);
-  
-	// Initialize handlers
-	IntakeHandler intake(intakeBasePrimary, intakeBaseSecondary, state.intake);
-	ScorerHandler scorer(scorerLift, state.scorer);
-	PneumaticsHandler pneumatics(blockPiston, middleGoalPiston, loaderPiston, armPiston,
-								 state.scorer, state.intake, state.loader, state.arm);
-  
-                //  58.69, -9.57, 97.067
-
-	chassis.setPose(50.22, -14.966, 270);  // Match GETBALL.txt starting point
-  initRobot(pneumatics);
-    // Follow path to get balls
-  chassis.follow(LOADBALLS_txt, 15, 3000, true);
-  loadBalls(intake, 1000);
-
-	pneumatics.setBlock(false);
-	pneumatics.setLoader(false);    // Follow path to goal
-    chassis.follow(MOVETOLONGGOAL_txt, 15, 3000, true);
-  shootBalls(intake, 1000);
-  chassis.follow(PARKROBOTFROMLONGGOAL_txt, 15, 3000, true);
-}
-
-void autonSkills() {
-  lcd::print(3, "AUTON SKILLS");
-  State state;
-
-	Motor intakeBasePrimary(INTAKE_BASE_PRIMARY, MOTOR_GEARSET);
-	Motor intakeBaseSecondary(INTAKE_BASE_SECONDARY, MOTOR_GEARSET);
-	Motor scorerLift(SCORER_LIFT_PORT, MOTOR_GEARSET);
-  
-	// Initialize pneumatics (ADI digital outputs)
-	adi::DigitalOut blockPiston(BLOCK_PISTON_PORT);
-	adi::DigitalOut middleGoalPiston(MIDDLE_GOAL_PISTON_PORT);
-	adi::DigitalOut loaderPiston(LOADER_PISTON_PORT);
-	adi::DigitalOut armPiston(ARM_PISTON_PORT);
-  
-	// Initialize handlers
-	IntakeHandler intake(intakeBasePrimary, intakeBaseSecondary, state.intake);
-	ScorerHandler scorer(scorerLift, state.scorer);
-	PneumaticsHandler pneumatics(blockPiston, middleGoalPiston, loaderPiston, armPiston,
-								 state.scorer, state.intake, state.loader, state.arm);
-  chassis.setPose(0, 0, 0);
-  initRobot(pneumatics);
-
-  chassis.follow(SKLDBALL_txt, 15, 5000, true);
-  loadBalls(intake, 1000);
-  shootBalls(intake, 10000);
-  chassis.follow(SKSHTBALL_txt, 15, 5000, true);
-  loadBalls(intake, 1000);
-  shootBalls(intake, 10000);
-  chassis.follow(SKLDBALL2_txt, 15, 5000, true);
-  loadBalls(intake, 1000);
-  shootBalls(intake, 10000);
-  chassis.follow(SKSHTBALL2_txt, 15, 5000, true);
-  loadBalls(intake, 1000);
-  shootBalls(intake, 10000);
-  chassis.follow(SKLDBALL3_txt, 15, 5000, true);
-  loadBalls(intake, 1000);
-  shootBalls(intake, 10000);
-  chassis.follow(SKSHTBALL3_txt, 15, 5000, true);
-  loadBalls(intake, 1000);
-  shootBalls(intake, 10000);
-
-}
-
 void autonomous() {
-  if (autonSelector == 0) {
-    autonMatch();
-  } else if (autonSelector == 1) {
-    autonSkills();
+  Robot robot;
+  
+  lcd::print(2, "[INFO] AUTON RUNNING: %s", autonNames[autonSelector]);
+  chassis.setPose(0, 0, 0);
+  
+  switch (autonSelector) {
+    case 0:  // Left
+      autonPeriodLeft(robot.intake, robot.loaderPiston, 1);
+      break;
+    case 1:  // Left 2 Goals
+      autonPeriodLeft(robot.intake, robot.loaderPiston, 2);
+      break;
+    case 2:  // Left 3 Goals
+      autonPeriodLeft(robot.intake, robot.loaderPiston, 3);
+      break;
+    case 3:  // Right 1 Goal
+      autonPeriodRight(robot.intake, robot.loaderPiston, 1);
+      break;
+    case 4:  // Right 2 Goals
+      autonPeriodRight(robot.intake, robot.loaderPiston, 2);
+      break;
+    case 5:  // Right 3 Goals
+      autonPeriodRight(robot.intake, robot.loaderPiston, 3);
+      break;
+    default:  // None
+      break;
   }
 }
 
@@ -216,49 +186,29 @@ void autonomous() {
  * task, not resume it from where it left off.
  */
 
+
 void opcontrol() {
-  // Initialize state
-  State state;
+  Robot robot;
+  
+  autonPeriodLeft(robot.intake, robot.loaderPiston, 3);
+}
 
-  // Initialize motors
-  Motor intakeBasePrimary(INTAKE_BASE_PRIMARY, MOTOR_GEARSET);
-  Motor intakeBaseSecondary(INTAKE_BASE_SECONDARY, MOTOR_GEARSET);
-  Motor scorerLift(SCORER_LIFT_PORT, MOTOR_GEARSET);
-
-  // Initialize pneumatics (ADI digital outputs)
-  adi::DigitalOut blockPiston(BLOCK_PISTON_PORT);
-  adi::DigitalOut middleGoalPiston(MIDDLE_GOAL_PISTON_PORT);
-  adi::DigitalOut loaderPiston(LOADER_PISTON_PORT);
-  adi::DigitalOut armPiston(ARM_PISTON_PORT);
-
-  // Initialize handlers
-  ; IntakeHandler intake(intakeBasePrimary, intakeBaseSecondary, state.intake);
-  ScorerHandler scorer(scorerLift, state.scorer);
-  PneumaticsHandler pneumatics(blockPiston, middleGoalPiston, loaderPiston, armPiston, state.scorer, state.intake, state.loader, state.arm);
-
-  // Initialize pneumatics to match state
-  pneumatics.init();
-
-  Controller master(E_CONTROLLER_MASTER);
+void opcontrol1() {
+  Robot robot;
 
   int cycle = 0;
+  
+  // set position to x:0, y:0, heading:0
+  chassis.setPose(0, 0, 0);
+  // turn to face heading 90 with a very long timeout
+  chassis.turnToHeading(90, 100000);
 
-  while (true) {
-    if (cycle % 25 == 0) {
-      // master.set_text(2, 0, "15520X        ");
-      bool isReversed = !state.scorer.liftDirection;
-      if (isReversed) {
-        master.set_text(0, 0, "REVERSED");
-      } else {
-        master.set_text(0, 0, "FORWARD ");
-      }
-    }
-
+  while (false == true) {
     cycle++;
 
     // Drive control
-    double forward = master.get_analog(ANALOG_LEFT_Y);
-    double turn = master.get_analog(ANALOG_RIGHT_X);
+    double forward = robot.master.get_analog(ANALOG_LEFT_Y);
+    double turn = robot.master.get_analog(ANALOG_RIGHT_X);
 
     // if (!state.driveDirection) {
     // 	forward = -forward;
@@ -281,17 +231,46 @@ void opcontrol() {
     // }
 
     // Intake controls
-    if (master.get_digital_new_press(DIGITAL_R1)) {
-      master.clear_line(1);
-      master.set_text(1, 0, "INTAKE_TOGGLE");
-      intake.toggle();
+    if (robot.master.get_digital_new_press(DIGITAL_R1)) {
+      robot.master.clear_line(1);
+      robot.master.set_text(1, 0, "INTAKE_TOGGLE");
+      robot.intake.toggle();
     }
 
-    if (master.get_digital_new_press(DIGITAL_A)) {
-      master.clear_line(1);
-      master.set_text(1, 0, "SYSTEM_REVERSE");
-      intake.toggleDirection();
-      scorer.toggleDirection();
+    if (robot.master.get_digital_new_press(DIGITAL_A)) {
+      robot.master.clear_line(1);
+      robot.master.set_text(1, 0, "SYSTEM_REVERSE");
+      robot.intake.toggleDirection();
+    }
+
+    int hue = robot.opticalSensorTop.get_hue();
+    bool isRed = hue < 30 || hue > 330;
+    bool isBlue = hue < 240;
+    
+    if (isRed) {
+      // Detected red
+      if (isRedAlliance) continue;
+    } else if (isBlue) {
+      // Detected blue
+      if (!isRedAlliance) continue;
+
+      if (robot.state.scorer.liftOn) { // If currently scoring, shoot the ball away from the goal
+        // Lift is facing forward
+        robot.scorer.toggleDirection();
+        delay(800);
+        robot.scorer.toggleDirection();
+        // This effectly does the following:
+        // 1. Middle goal scoring is in effect: it would inverse the scorer direction super quickly
+        //    allowing for the opposition ball to be shot towards the high goal direction, and in turn
+        //    prevent the ball from actually scoring. This is done super quickly (~0.8 second)
+        // 2. High goal scoring is in effect: it would inverse the scorer direction towards the middle goal
+        //    ball would fly downwards, preventing it from scoring
+      } else { // If not currently scoring, simply launch the ball away
+        // Lift is facing backward
+        robot.scorer.setOn(true); // Turn on the scorer to eject the ball
+        delay(800);
+        robot.scorer.setOn(false); // Turn it off quickly to prevent ejecting alliance balls behind
+      }
     }
 
     // Scorer controls
@@ -300,46 +279,44 @@ void opcontrol() {
     // 	scorer.toggleDirection();
     // }
 
-    if (master.get_digital_new_press(DIGITAL_R2)) {
-      master.clear_line(1);
-      master.set_text(1, 0, "SCORER_TOGGLE");
-      scorer.toggle();
+    if (robot.master.get_digital_new_press(DIGITAL_R2)) {
+      robot.master.clear_line(1);
+      robot.master.set_text(1, 0, "SCORER_TOGGLE");
+      robot.scorer.toggle();
     }
 
     // Pneumatics controls
-    if (master.get_digital_new_press(DIGITAL_L2)) {
-      master.clear_line(1);
-      master.set_text(1, 0, "BLOCK_TOGGLE");
-      pneumatics.toggleBlock();
+    if (robot.master.get_digital_new_press(DIGITAL_L2)) {
+      robot.master.clear_line(1);
+      robot.master.set_text(1, 0, "BLOCK_TOGGLE");
+      robot.pneumatics.toggleBlock();
     }
 
-    if (master.get_digital_new_press(DIGITAL_B)) {
-      master.clear_line(1);
-      master.set_text(1, 0, "MIDDLE_GOAL_TOGGLE");
-      pneumatics.toggleMiddleGoal();
+    if (robot.master.get_digital_new_press(DIGITAL_B)) {
+      robot.master.clear_line(1);
+      robot.master.set_text(1, 0, "MIDDLE_GOAL_TOGGLE");
+      robot.scorer.toggleDirection();
     }
 
-    if (master.get_digital_new_press(DIGITAL_L1)) {
-      master.clear_line(1);
-      master.set_text(1, 0, "LOADER_TOGGLE");
-      pneumatics.toggleLoader();
+    if (robot.master.get_digital_new_press(DIGITAL_L1)) {
+      robot.master.clear_line(1);
+      robot.master.set_text(1, 0, "LOADER_TOGGLE");
+      robot.pneumatics.toggleLoader();
     }
 
-    if (master.get_digital_new_press(DIGITAL_LEFT)) {
-      master.clear_line(1);
-      master.set_text(1, 0, "ARM TOGGLE");
-      pneumatics.toggleArm();
+    if (robot.master.get_digital_new_press(DIGITAL_LEFT)) {
+      robot.master.clear_line(1);
+      robot.master.set_text(1, 0, "ARM TOGGLE");
+      robot.pneumatics.toggleArm();
     }
 
     // Update all handlers
-    intake.update();
-    scorer.update();
+    robot.intake.update();
+    robot.scorer.update();
 
     // Drive
     chassis.arcade(forward, turn);
 
-    // Update LCD with current state
-    // updateLCD(state);
 
     pros::delay(20);
   }

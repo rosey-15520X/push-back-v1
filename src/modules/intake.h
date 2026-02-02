@@ -22,7 +22,7 @@ public:
 
     void toggleDirection() {
         state.primaryDirection = !state.primaryDirection;
-        state.secondaryDirection = !state.secondaryDirection;
+        state.secondaryDirection = state.primaryDirection;
     }
 
     void setPrimaryOn(bool on) { state.primaryOn = on; }
