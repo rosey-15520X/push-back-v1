@@ -15,6 +15,7 @@ ASSET(PeriodMoveLoadMGPT3_txt)
 ASSET(PeriodMoveLoadMGPT4_txt)
 ASSET(PeriodMoveLoadMGPT5_txt)
 ASSET(PeriodMoveLoadMGPT6_txt)
+ASSET(PeriodMoveLoadLG1PT4_txt)
 
 /**
  * Helper to follow a path with optional mirroring
@@ -28,6 +29,7 @@ inline void followPath(asset pathAsset, float lookahead, int timeout, bool forwa
     } else {
         chassis.follow(pathAsset, lookahead, timeout, forwards);
     }
+    chassis.waitUntilDone();  // IMPORTANT: Wait for path to complete before continuing!
 }
 
 /**
@@ -40,24 +42,36 @@ inline void autonPeriod(IntakeHandler& intake, adi::DigitalOut& loaderPiston, in
     float m = mirror ? -1.0f : 1.0f;  // Y multiplier
     
     // Starting position (mirrored Y if on right side)
-    chassis.setPose(-62.273, m * 17.703, mirror ? 180 : 0);
+    chassis.setPose(-54.996, 17.593, mirror ? 180 : 0);
 
     followPath(PeriodMoveLoadLG1PT1_txt, 15, 3000, true, mirror);
     chassis.turnToHeading(mirror ? mirrorHeading(270) : 270, 1000);
+    chassis.waitUntilDone();
     followPath(PeriodMoveLoadLG1PT2_txt, 15, 3000, true, mirror);
     followPath(PeriodMoveLoadLG1PT3_txt, 15, 3000, false, mirror);
-    
+    // Recalibrate position (heading 270, or 90 if mirrored)
+    // chassis.setPose(-30.66, 47.244 * (mirror ? -1 : 1), mirror ? mirrorHeading(270) : 270);
+    // // // Move forward 17 inches to target
+    // chassis.moveToPoint(-47.329, 47.329 * (mirror ? -1 : 1), 2000, {.forwards = true});
+    // chassis.waitUntilDone();
+    followPath(PeriodMoveLoadLG1PT4_txt, 15, 3000, true, mirror);
+    chassis.turnToHeading(mirror ? mirrorHeading(135) : 135, 1000);
+    chassis.waitUntilDone();
     if (goals >= 2) {
-        followPath(PeriodMoveLoadMGPT1_txt, 15, 3000, true, mirror);
-        chassis.turnToHeading(mirror ? mirrorHeading(45) : 45, 1000);
+        // Recalibrate odometry - PT4 ends here, we turned to 135
+        chassis.setPose(-47.932, 47.932 * (mirror ? -1 : 1), mirror ? mirrorHeading(135) : 135);
+        // Path starts at (-47.932, 47.932) heading 135
+        followPath(PeriodMoveLoadMGPT1_txt, 12, 3000, true, mirror);  // Reduced lookahead for accuracy
         // RUN THE INTAKE
-        followPath(PeriodMoveLoadMGPT2_txt, 15, 3000, true, mirror);
-        chassis.turnToHeading(mirror ? mirrorHeading(225) : 225, 1000);
+        // followPath(PeriodMoveLoadMGPT2_txt, 15, 3000, true, mirror);
+        chassis.turnToHeading(mirror ? mirrorHeading(315) : 315, 1000);
+        chassis.waitUntilDone();
         followPath(PeriodMoveLoadMGPT3_txt, 15, 3000, false, mirror);
         
         if (goals >= 3) {
             followPath(PeriodMoveLoadMGPT4_txt, 15, 3000, true, mirror);
             chassis.turnToHeading(mirror ? mirrorHeading(270) : 270, 1000);
+            chassis.waitUntilDone();
             followPath(PeriodMoveLoadMGPT5_txt, 15, 1500, true, mirror);
             followPath(PeriodMoveLoadMGPT6_txt, 15, 1500, false, mirror);
         }

@@ -109,3 +109,64 @@ inline void shootMiddleBalls(IntakeHandler& intake, int time) {
     intake.setSecondaryOn(false);
     intake.update();
 }
+
+/**
+ * Start receiving from match loader
+ * Turns on intake and sets loader to receive position
+ */
+inline void startMatchLoader(pros::adi::DigitalOut& loaderPiston, IntakeHandler& intake) {
+    // Start intake to receive balls
+    intake.setPrimaryOn(true);
+    intake.setSecondaryOn(true);
+    intake.setSecondaryDirection(true);  // forward to intake
+    intake.update();
+    
+    // Contract loader to receive position
+    loaderPiston.set_value(true);
+}
+
+/**
+ * Push balls from match loader
+ * Extends the loader piston to push balls into robot
+ */
+inline void pushMatchLoader(pros::adi::DigitalOut& loaderPiston) {
+    loaderPiston.set_value(false);  // Extend to push
+}
+
+/**
+ * Reset match loader to receive position
+ */
+inline void resetMatchLoader(pros::adi::DigitalOut& loaderPiston) {
+    loaderPiston.set_value(true);  // Contract to receive
+}
+
+/**
+ * Stop match loader
+ * Turns off intake and leaves loader contracted
+ */
+inline void stopMatchLoader(pros::adi::DigitalOut& loaderPiston, IntakeHandler& intake) {
+    // Stop intake
+    intake.setPrimaryOn(false);
+    intake.setSecondaryOn(false);
+    intake.update();
+    
+    // Leave loader contracted (ready position)
+    loaderPiston.set_value(true);
+}
+
+/**
+ * Score balls into a goal
+ * @param intake - Reference to the intake handler
+ * @param time - Time to run scorer in ms
+ * @param middleGoal - If true, shoot backward for middle goal
+ */
+inline void scoreBalls(IntakeHandler& intake, int time, bool middleGoal = false) {
+    intake.setPrimaryOn(true);
+    intake.setSecondaryOn(true);
+    intake.setSecondaryDirection(!middleGoal);  // forward for high, backward for middle
+    intake.update();
+    pros::delay(time);
+    intake.setPrimaryOn(false);
+    intake.setSecondaryOn(false);
+    intake.update();
+}
