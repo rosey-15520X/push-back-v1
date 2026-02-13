@@ -29,6 +29,8 @@ public:
     void setSecondaryOn(bool on) { state.secondaryOn = on; }
     void setPrimaryDirection(bool forward) { state.primaryDirection = forward; }
     void setSecondaryDirection(bool forward) { state.secondaryDirection = forward; }
+    void setPrimarySpeed(int speed) { state.primarySpeed = speed; }
+    void setSecondarySpeed(int speed) { state.secondarySpeed = speed; }
 
     void update() {
         // Handle primary motor

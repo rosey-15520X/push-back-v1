@@ -2,6 +2,7 @@
 
 #include "main.h"
 #include "../modules/intake.h"
+#include "../modules/scorer.h"
 #include <cstring>
 #include <cstdlib>
 #include <cstdio>
@@ -160,13 +161,21 @@ inline void stopMatchLoader(pros::adi::DigitalOut& loaderPiston, IntakeHandler& 
  * @param time - Time to run scorer in ms
  * @param middleGoal - If true, shoot backward for middle goal
  */
-inline void scoreBalls(IntakeHandler& intake, int time, bool middleGoal = false) {
+inline void scoreBalls(IntakeHandler& intake, int time, bool middleGoal, ScorerHandler& scorer, pros::adi::DigitalOut& scorerPiston) {
     intake.setPrimaryOn(true);
     intake.setSecondaryOn(true);
-    intake.setSecondaryDirection(!middleGoal);  // forward for high, backward for middle
+    intake.setSecondaryDirection(true);
+    intake.setPrimaryDirection(true);
+    scorerPiston.set_value(true);
+    scorer.setOn(true);
+    scorer.setDirection(!middleGoal);
+    scorer.update();
     intake.update();
     pros::delay(time);
     intake.setPrimaryOn(false);
     intake.setSecondaryOn(false);
+    scorer.setOn(false);
     intake.update();
+    scorer.update();
+    scorerPiston.set_value(false);
 }

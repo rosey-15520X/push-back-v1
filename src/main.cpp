@@ -1,54 +1,67 @@
 #include "main.h"
+#include "auto/auton_period.h"
+#include "auto/auton_skills.h"
+#include "modules/color.h"
 #include "modules/drive.h"
 #include "modules/intake.h"
 #include "modules/pneumatics.h"
 #include "modules/scorer.h"
 #include "modules/state.h"
-#include "auto/auton_period.h"
 #include "pros/misc.h"
+#include <algorithm>
+#include <iostream>
+
+
+#define DISTANCE_SENSOR_FRONT 18
+using namespace std;
 
 // ============================================================================
 // AUTON SELECTOR
-// FLAG: Selector is shown in initialize() so it's always available, even 
+// FLAG: Selector is shown in initialize() so it's always available, even
 //       without a competition switch. This allows testing autons anytime.
 //       Move to competition_initialize() if you only want it during matches.
 // ============================================================================
 int autonSelector = 0;
 bool isRedAlliance = true;
-bool autonConfirmed = false;  // Must confirm before robot runs (without comp switch)
+bool autonConfirmed =
+    false; // Must confirm before robot runs (without comp switch)
 
-const char* autonNames[] = {"Left 1 Goal", "Left 2 Goals", "Left 3 Goals", "Right 1 Goal", "Right 2 Goals", "Right 3 Goals", "Skills", "None"};
+// const char* autonNames[] = {"Left 1 Goal", "Left 2 Goals", "Left 3 Goals",
+// "Right 1 Goal", "Right 2 Goals", "Right 3 Goals", "Skills", "None"};
+const char *autonNames[] = {"Skills", "Left 2 Match", "Left 1 Match", "None"};
 const int AUTON_COUNT = 8;
 
 // Controller for auton selection
 pros::Controller selectorController(pros::E_CONTROLLER_MASTER);
 
 void updateAutonDisplay() {
-    pros::lcd::print(1, "< %s >", autonNames[autonSelector]);
-    pros::lcd::print(2, "Alliance: %s", isRedAlliance ? "RED" : "BLUE");
-    if (!autonConfirmed) {
-        pros::lcd::print(3, "L1/R1=sel A=color B=OK");
-        selectorController.print(0, 0, "<%s>", autonNames[autonSelector]);
-        selectorController.print(1, 0, "%s  B=Confirm", isRedAlliance ? "RED" : "BLU");
-    } else {
-        pros::lcd::print(3, ">> CONFIRMED <<");
-        selectorController.print(0, 0, "CONFIRMED: %s", autonNames[autonSelector]);
-        selectorController.print(1, 0, "%s", isRedAlliance ? "RED ALLIANCE" : "BLUE ALLIANCE");
-    }
+  pros::lcd::print(1, "< %s >", autonNames[autonSelector]);
+  pros::lcd::print(2, "Alliance: %s", isRedAlliance ? "RED" : "BLUE");
+  if (!autonConfirmed) {
+    pros::lcd::print(3, "L1/R1=sel A=color B=OK");
+    selectorController.print(0, 0, "<%s>", autonNames[autonSelector]);
+    selectorController.print(1, 0, "%s  B=Confirm",
+                             isRedAlliance ? "RED" : "BLU");
+  } else {
+    pros::lcd::print(3, ">> CONFIRMED <<");
+    selectorController.print(0, 0, "CONFIRMED: %s", autonNames[autonSelector]);
+    selectorController.print(1, 0, "%s",
+                             isRedAlliance ? "RED ALLIANCE" : "BLUE ALLIANCE");
+  }
 }
 
 // Motor ports
 #define INTAKE_BASE_PRIMARY -7
-#define INTAKE_BASE_SECONDARY -4
-#define SCORER_LIFT_PORT 4
+#define INTAKE_BASE_SECONDARY -6
+#define SCORER_LIFT_PORT 2
 
 // Pneumatics ADI ports (3-wire)
 #define BLOCK_PISTON_PORT 'C'
 #define LOADER_PISTON_PORT 'B'
 #define ARM_PISTON_PORT 'A'
 
-#define OPTICAL_PORT_TOP 1
-#define OPTICAL_PORT_BOTTOM 2
+#define OPTICAL_PORT_TOP 8
+#define OPTICAL_PORT_BOTTOM 15
 
 using namespace pros;
 
@@ -56,37 +69,40 @@ using namespace pros;
 // ROBOT STRUCT - Holds all robot components
 // ============================================================================
 struct Robot {
-    State state;
-    
-    // Motors
-    Motor intakeBasePrimary{INTAKE_BASE_PRIMARY, MOTOR_GEARSET};
-    Motor intakeBaseSecondary{INTAKE_BASE_SECONDARY, MOTOR_GEARSET};
-    Motor scorerLift{SCORER_LIFT_PORT, MOTOR_GEARSET};
-    
-    // Pneumatics
-    adi::DigitalOut blockPiston{BLOCK_PISTON_PORT};
-    adi::DigitalOut loaderPiston{LOADER_PISTON_PORT};
-    adi::DigitalOut armPiston{ARM_PISTON_PORT};
-    
-    // Sensors
-    Optical opticalSensorTop{OPTICAL_PORT_TOP};
-    Optical opticalSensorBottom{OPTICAL_PORT_BOTTOM};
-    
-    // Handlers (initialized in constructor)
-    PneumaticsHandler pneumatics;
-    IntakeHandler intake;
-    ScorerHandler scorer;
-    
-    // Controller
-    Controller master{E_CONTROLLER_MASTER};
-    
-    Robot() : 
-        pneumatics(blockPiston, loaderPiston, armPiston, state.scorer, state.intake, state.loader, state.arm),
+  State state;
+
+  // Motors
+  Motor intakeBasePrimary{INTAKE_BASE_PRIMARY, MOTOR_GEARSET};
+  Motor intakeBaseSecondary{INTAKE_BASE_SECONDARY, MOTOR_GEARSET};
+  Motor scorerLift{SCORER_LIFT_PORT, MOTOR_GEARSET};
+
+  // Pneumatics
+  adi::DigitalOut blockPiston{BLOCK_PISTON_PORT};
+  adi::DigitalOut loaderPiston{LOADER_PISTON_PORT};
+  adi::DigitalOut armPiston{ARM_PISTON_PORT};
+
+  // Sensors
+  Optical opticalSensorTop{OPTICAL_PORT_TOP};
+  Optical opticalSensorBottom{OPTICAL_PORT_BOTTOM};
+
+  // Handlers (initialized in constructor)
+  PneumaticsHandler pneumatics;
+  IntakeHandler intake;
+  ScorerHandler scorer;
+
+  // Controller
+  Controller master{E_CONTROLLER_MASTER};
+
+  Robot()
+      : pneumatics(blockPiston, loaderPiston, armPiston, state.scorer,
+                   state.intake, state.loader, state.arm),
         intake(intakeBasePrimary, intakeBaseSecondary, state.intake),
-        scorer(scorerLift, state.scorer) 
-    {
-        pneumatics.init();
-    }
+        scorer(scorerLift, state.scorer) {
+    pneumatics.init();
+    // Enable optical sensor LEDs (required for color detection!)
+    opticalSensorTop.set_led_pwm(100);
+    opticalSensorBottom.set_led_pwm(100);
+  }
 };
 
 /**
@@ -100,32 +116,34 @@ void competition_initialize() {
   updateAutonDisplay();
 
   // Controller-based auton selector (runs in background)
-  pros::Task selectorTask([](void*) {
-    while (!autonConfirmed) {
-      // L1 = previous auton
-      if (selectorController.get_digital_new_press(DIGITAL_L1)) {
-        autonSelector = (autonSelector - 1 + AUTON_COUNT) % AUTON_COUNT;
-        updateAutonDisplay();
-      }
-      // R1 = next auton
-      if (selectorController.get_digital_new_press(DIGITAL_R1)) {
-        autonSelector = (autonSelector + 1) % AUTON_COUNT;
-        updateAutonDisplay();
-      }
-      // A = toggle alliance color
-      if (selectorController.get_digital_new_press(DIGITAL_A)) {
-        isRedAlliance = !isRedAlliance;
-        updateAutonDisplay();
-      }
-      // B = confirm selection
-      if (selectorController.get_digital_new_press(DIGITAL_B)) {
-        autonConfirmed = true;
-        updateAutonDisplay();
-        selectorController.rumble("-");  // Short rumble to confirm
-      }
-      pros::delay(20);
-    }
-  }, nullptr, "selectorTask");
+  pros::Task selectorTask(
+      [](void *) {
+        while (!autonConfirmed) {
+          // L1 = previous auton
+          if (selectorController.get_digital_new_press(DIGITAL_L1)) {
+            autonSelector = (autonSelector - 1 + AUTON_COUNT) % AUTON_COUNT;
+            updateAutonDisplay();
+          }
+          // R1 = next auton
+          if (selectorController.get_digital_new_press(DIGITAL_R1)) {
+            autonSelector = (autonSelector + 1) % AUTON_COUNT;
+            updateAutonDisplay();
+          }
+          // A = toggle alliance color
+          if (selectorController.get_digital_new_press(DIGITAL_A)) {
+            isRedAlliance = !isRedAlliance;
+            updateAutonDisplay();
+          }
+          // B = confirm selection
+          if (selectorController.get_digital_new_press(DIGITAL_B)) {
+            autonConfirmed = true;
+            updateAutonDisplay();
+            selectorController.rumble("-"); // Short rumble to confirm
+          }
+          pros::delay(20);
+        }
+      },
+      nullptr, "selectorTask");
 }
 
 /**
@@ -150,9 +168,10 @@ void initialize() {
   lcd::print(0, "[INFO] IMU calibrating...");
 
   // Calibrate WITHOUT risking a permanent block.
-  // NOTE: In some LemLib/PROS setups, chassis.calibrate() can block forever if the IMU
-  // isn't present/wired correctly. Run it in a task so we can still time out.
-  pros::Task imuCalTask([](void*) { chassis.calibrate(); }, nullptr, "imuCal");
+  // NOTE: In some LemLib/PROS setups, chassis.calibrate() can block forever if
+  // the IMU isn't present/wired correctly. Run it in a task so we can still
+  // time out.
+  pros::Task imuCalTask([](void *) { chassis.calibrate(); }, nullptr, "imuCal");
 
   int timeoutMs = 6000;
   // Give the calibrate task a moment to kick off
@@ -167,7 +186,7 @@ void initialize() {
   } else {
     lcd::print(0, "[INFO] Ready");
   }
-  
+
   // // Show auton selector after calibration
   // lcd::print(0, "[PROMPT] SELECT AUTON:");
   // updateAutonDisplay();
@@ -216,36 +235,62 @@ void initialize() {
 void autonomous() {
   // Auto-confirm if running in competition mode
   autonConfirmed = true;
-  
-  Robot robot;
-  
-  lcd::print(2, "[INFO] AUTON RUNNING: %s", autonNames[autonSelector]);
-  chassis.setPose(0, 0, 0);
-  
-  switch (autonSelector) {
-    case 0:  // Left
-      autonPeriodLeft(robot.intake, robot.loaderPiston, 1);
-      break;
-    case 1:  // Left 2 Goals
-      autonPeriodLeft(robot.intake, robot.loaderPiston, 2);
-      break;
-    case 2:  // Left 3 Goals
-      autonPeriodLeft(robot.intake, robot.loaderPiston, 3);
-      break;
-    case 3:  // Right 1 Goal
-      autonPeriodRight(robot.intake, robot.loaderPiston, 1);
-      break;
-    case 4:  // Right 2 Goals
-      autonPeriodRight(robot.intake, robot.loaderPiston, 2);
-      break;
-    case 5:  // Right 3 Goals
-      autonPeriodRight(robot.intake, robot.loaderPiston, 3);
-      break;
-    default:  // None
-      break;
-  }
-}
 
+  Robot robot;
+
+  lcd::print(2, "[INFO] AUTON RUNNING: %s", autonNames[autonSelector]);
+  // chassis.setPose(0, 0, 0);
+  // return autonSkills(robot.intake, robot.scorer, robot.loaderPiston);
+  // return autonSkills(robot.intake, robot.scorer,robot.loaderPiston);
+  // return autonPeriodLeft(robot.intake, robot.scorer, robot.loaderPiston,
+  // robot.blockPiston, 2);
+  // TEMP AUTON TEST
+
+  // return autonPeriodRightOne(robot.intake, robot.scorer, robot.loaderPiston,
+  //   robot.blockPiston, 2);
+  return RELIM_autonPeriod(robot.intake, robot.scorer, robot.loaderPiston, robot.blockPiston, robot.armPiston, 2);
+  // // ========================================================
+  // return autonPeriodRightOne(robot.intake, robot.scorer, robot.loaderPiston,
+  //                 robot.blockPiston, 1);
+  // delay(10000);
+  // return autonSkills(robot.intake, robot.scorer, robot.loaderPiston, robot.blockPiston);
+
+  switch (autonSelector) {
+  case 0:
+    return autonSkills(robot.intake, robot.scorer, robot.loaderPiston, robot.blockPiston);
+  case 1:
+    return autonPeriodLeft(robot.intake, robot.scorer, robot.loaderPiston,
+                           robot.blockPiston, 2);
+  case 2:
+      return autonPeriodRight(robot.intake, robot.scorer, robot.loaderPiston,
+                           robot.blockPiston, 1);
+  default:
+    return;
+  }
+
+  // switch (autonSelector) {
+  //   case 0:  // Left
+  //     autonPeriodLeft(robot.intake, robot.loaderPiston, robot.blockPiston,
+  //     1); break;
+  //   case 1:  // Left 2 Goals
+  //     autonPeriodLeft(robot.intake, robot.loaderPiston, robot.blockPiston,
+  //     2); break;
+  //   case 2:  // Left 3 Goals
+  //     autonPeriodLeft(robot.intake, robot.loaderPiston, robot.blockPiston,
+  //     3); break;
+  //   case 3:  // Right 1 Goal
+  //     autonPeriodRight(robot.intake, robot.loaderPiston, robot.blockPiston,
+  //     1); break;
+  //   case 4:  // Right 2 Goals
+  //     autonPeriodRight(robot.intake, robot.loaderPiston, robot.blockPiston,
+  //     2); break;
+  //   case 5:  // Right 3 Goals
+  //     autonPeriodRight(robot.intake, robot.loaderPiston, robot.blockPiston,
+  //     3); break;
+  //   default:  // None
+  //     break;
+  // }
+}
 
 /**
  * Runs the operator control code. This function will be started in its own task
@@ -261,24 +306,42 @@ void autonomous() {
  * task, not resume it from where it left off.
  */
 
-
 void opcontrol() {
+  static bool scoringMiddleGoal = false;
   Robot robot;
 
+  // autonomous();
+
+  // Color handling on separate thread - won't block driver controls
+  // pros::Task colorTask([](void* param) {
+  //   Robot* r = static_cast<Robot*>(param);
+  //   static int lastDetectedTop = 0;
+  //   while (true) {
+  //     int hueUpper = r->opticalSensorTop.get_hue();
+  //     int hueBottom = r->opticalSensorBottom.get_hue();
+
+  //     handleColor(hueUpper, hueBottom, r->intake, r->scorer, r->pneumatics,
+  //     isRedAlliance, lastDetectedTop, scoringMiddleGoal);
+
+  //     pros::delay(20);  // Check every 20ms
+  //   }
+  // }, &robot, "colorTask");
+
+  // autonomous();
   // Wait for auton selection confirmation if no competition switch
   // if (!pros::competition::is_connected()) {
   //   lcd::print(0, "[PROMPT] SELECT AUTON:");
   //   while (!autonConfirmed) {
   //     pros::delay(50);  // Wait for user to confirm selection
   //   }
-    
+
   //   // Ask: run auton or driver?
   //   lcd::print(0, "[PROMPT] RUN AUTON?");
   //   lcd::print(3, "L1=Auton  R1=Driver");
-    
+
   //   bool waitingForChoice = true;
   //   bool runAuton = false;
-    
+
   //   while (waitingForChoice) {
   //     if (robot.master.get_digital_new_press(DIGITAL_L1)) {
   //       runAuton = true;
@@ -290,7 +353,7 @@ void opcontrol() {
   //     }
   //     pros::delay(50);
   //   }
-    
+
   //   if (runAuton) {
   //     lcd::print(0, "[INFO] Running Auton...");
   //     lcd::print(3, "                        ");
@@ -298,7 +361,7 @@ void opcontrol() {
   //     lcd::print(0, "[INFO] Auton Complete!");
   //     pros::delay(1000);
   //   }
-    
+
   //   lcd::print(0, "[INFO] Driver Control");
   //   lcd::print(3, "                        ");
   // }
@@ -308,12 +371,26 @@ void opcontrol() {
 
   int cycle = 0;
 
+  Distance distanceSensorFront{DISTANCE_SENSOR_FRONT};
+
+  // distanceSensorFront.(100);
+
+
   while (true) {
+
+    int distanceFront = distanceSensorFront.get_distance();
+
     cycle++;
 
     // Drive control
     double forward = robot.master.get_analog(ANALOG_LEFT_Y);
     double turn = robot.master.get_analog(ANALOG_RIGHT_X);
+
+
+    if (cycle % 25 == 0) {
+      robot.master.print(1, 0, "A %s  B %s", robot.intake.getState().primaryDirection ? "FWD" : "INV", robot.scorer.getState().liftDirection ? "FWD" : "INV");
+      // robot.master.print(1, 5, "B %s", robot.scorer.getState().liftDirection ? "STR" : "INV");
+    }
 
     // if (!state.driveDirection) {
     // 	forward = -forward;
@@ -338,25 +415,35 @@ void opcontrol() {
     // Intake controls
     if (robot.master.get_digital_new_press(DIGITAL_R1)) {
       robot.master.clear_line(1);
-      robot.master.set_text(1, 0, "INTAKE_TOGGLE");
+      // robot.master.set_text(1, 0, "INTAKE_TOGGLE");
       robot.intake.toggle();
     }
 
     if (robot.master.get_digital_new_press(DIGITAL_A)) {
       robot.master.clear_line(1);
-      robot.master.set_text(1, 0, "SYSTEM_REVERSE");
+      // robot.master.set_text(1, 0, "SYSTEM_REVERSE");
       robot.intake.toggleDirection();
     }
 
     // // HANDLE TOP OPTICAL SENSOR
-    // int hue = robot.opticalSensorTop.get_hue();
-    // bool isRed = hue < 30 || hue > 330;
-    // bool isBlue = hue < 240;
+    int hueUpper = robot.opticalSensorTop.get_hue();
+    int hueBottom = robot.opticalSensorBottom.get_hue();
 
-    // // IMPORTANT: Don't `continue;` here — that skips driver control + drivetrain update.
+    // Only update LCD every 10 cycles (~200ms) to avoid rate limiting
+    // (Color handling now runs on separate thread)
+    if (cycle % 10 == 0) {
+      lcd::print(0, "HUE(UPPER): %d %c", hueUpper,
+                 isRed(hueUpper) ? 'R' : (isBlue(hueUpper) ? 'B' : 'N'));
+      lcd::print(1, "HUE(BOTTOM): %d %c", hueBottom,
+                 isRed(hueBottom) ? 'R' : (isBlue(hueBottom) ? 'B' : 'N'));
+      lcd::print(2, "DISTANCE FRONT: %d", distanceFront);
+    }
+
+    // // IMPORTANT: Don't `continue;` here — that skips driver control +
+    // drivetrain update.
     // // Only run the reject/eject logic when we see an opponent ball.
-    // bool opponentBall = (isRed && !isRedAlliance) || (isBlue && isRedAlliance);
-    // if (opponentBall) {
+    // bool opponentBall = (isRed && !isRedAlliance) || (isBlue &&
+    // isRedAlliance); if (opponentBall) {
     //   if (robot.state.scorer.liftOn) {
     //     robot.scorer.toggleDirection();
     //     delay(800);
@@ -381,32 +468,129 @@ void opcontrol() {
 
     if (robot.master.get_digital_new_press(DIGITAL_R2)) {
       robot.master.clear_line(1);
-      robot.master.set_text(1, 0, "SCORER_TOGGLE");
+      // robot.master.set_text(1, 0, "SCORER_TOGGLE");
       robot.scorer.toggle();
     }
 
     // Pneumatics controls
     if (robot.master.get_digital_new_press(DIGITAL_L2)) {
       robot.master.clear_line(1);
-      robot.master.set_text(1, 0, "BLOCK_TOGGLE");
+      // robot.master.set_text(1, 0, "BLOCK_TOGGLE");
       robot.pneumatics.toggleBlock();
     }
 
     if (robot.master.get_digital_new_press(DIGITAL_B)) {
       robot.master.clear_line(1);
-      robot.master.set_text(1, 0, "MIDDLE_GOAL_TOGGLE");
-      robot.scorer.toggleDirection();
+      // robot.master.set_text(1, 0, "MIDDLE_GOAL_TOGGLE");
+      scoringMiddleGoal = !scoringMiddleGoal;
+      if (scoringMiddleGoal) {
+        robot.scorer.toggleDirection();
+      } else {
+        robot.scorer.toggleDirection();
+      }
     }
 
-    if (robot.master.get_digital_new_press(DIGITAL_R1)) {
+    if (robot.master.get_digital_new_press(E_CONTROLLER_DIGITAL_LEFT)) {
       robot.master.clear_line(1);
-      robot.master.set_text(1, 0, "LOADER_TOGGLE");
+      // robot.master.set_text(1, 0, "LOADER_TOGGLE");
       robot.pneumatics.toggleLoader();
+    }
+
+    static pair<bool, bool> tp_primaryState = {false, false};   // on, direction
+    static pair<bool, bool> tp_secondaryState = {false, false}; // on, direction
+    static pair<bool, bool> tp_scorerState = {false, false};    // on, direction
+
+    if (robot.master.get_digital_new_press(E_CONTROLLER_DIGITAL_DOWN)) {
+      tp_primaryState = {robot.intake.getState().primaryOn,
+                         robot.intake.getState().primaryDirection};
+      tp_secondaryState = {robot.intake.getState().secondaryOn,
+                           robot.intake.getState().secondaryDirection};
+      robot.intake.setPrimaryOn(true);
+      robot.intake.setSecondaryOn(true);
+      robot.intake.setPrimaryDirection(false);
+      robot.intake.setSecondaryDirection(false);
+      robot.intake.setPrimarySpeed(127 * 0.75);
+      robot.intake.setSecondarySpeed(127 * 0.75);
+    } else if (robot.master.get_digital_new_release(
+                   E_CONTROLLER_DIGITAL_DOWN)) {
+      robot.intake.setPrimaryOn(tp_primaryState.first);
+      robot.intake.setPrimaryDirection(tp_primaryState.second);
+      robot.intake.setSecondaryOn(tp_secondaryState.first);
+      robot.intake.setSecondaryDirection(tp_secondaryState.second);
+
+      robot.intake.setPrimarySpeed(127);
+      robot.intake.setSecondarySpeed(127);
+    }
+
+    if (robot.master.get_digital_new_press(E_CONTROLLER_DIGITAL_UP)) {
+      tp_primaryState = {robot.intake.getState().primaryOn,
+                         robot.intake.getState().primaryDirection};
+      tp_secondaryState = {robot.intake.getState().secondaryOn,
+                           robot.intake.getState().secondaryDirection};
+      tp_scorerState = {robot.scorer.getState().liftOn,
+                        robot.scorer.getState().liftDirection};
+      robot.intake.setPrimaryOn(true);
+      robot.intake.setSecondaryOn(true);
+      robot.scorer.setOn(true);
+      robot.scorer.setDirection(false);
+      robot.intake.setPrimaryDirection(false);
+      robot.intake.setSecondaryDirection(false);
+      robot.intake.setPrimarySpeed(127 * 0.5);
+      robot.intake.setSecondarySpeed(127 * 0.5);
+    } else if (robot.master.get_digital_new_release(E_CONTROLLER_DIGITAL_UP)) {
+      robot.intake.setPrimaryOn(tp_primaryState.first);
+      robot.intake.setPrimaryDirection(tp_primaryState.second);
+      robot.intake.setSecondaryOn(tp_secondaryState.first);
+      robot.intake.setSecondaryDirection(tp_secondaryState.second);
+      robot.scorer.setOn(tp_scorerState.first);
+      robot.scorer.setDirection(tp_scorerState.second);
+      robot.intake.setPrimarySpeed(127);
+      robot.intake.setSecondarySpeed(127);
+      robot.scorer.setLiftSpeed(127);
+    }
+
+    if (robot.master.get_digital_new_press(E_CONTROLLER_DIGITAL_RIGHT)) {
+      tp_primaryState = {robot.intake.getState().primaryOn,
+                         robot.intake.getState().primaryDirection};
+      tp_secondaryState = {robot.intake.getState().secondaryOn,
+                           robot.intake.getState().secondaryDirection};
+
+      scoringMiddleGoal = true;
+
+      robot.intake.setPrimaryOn(true);
+      robot.intake.setSecondaryOn(true);
+      robot.intake.setSecondaryDirection(true);
+
+      robot.intake.setPrimaryDirection(true);
+
+      robot.intake.setPrimarySpeed(127 * 0.5);
+      robot.intake.setSecondarySpeed(127 * 0.5);
+
+      robot.scorer.setLiftSpeed(127 * 0.5);
+      tp_scorerState = {robot.scorer.getState().liftOn,
+                        robot.scorer.getState().liftDirection};
+      robot.scorer.setOn(true);
+      robot.scorer.setDirection(false);
+    } else if (robot.master.get_digital_new_release(
+                   E_CONTROLLER_DIGITAL_RIGHT)) {
+      scoringMiddleGoal = false;
+      robot.intake.setPrimaryOn(tp_primaryState.first);
+      robot.intake.setPrimaryDirection(tp_primaryState.second);
+      robot.intake.setSecondaryOn(tp_secondaryState.first);
+      robot.intake.setSecondaryDirection(tp_secondaryState.second);
+
+      robot.intake.setPrimarySpeed(127);
+      robot.intake.setSecondarySpeed(127);
+
+      robot.scorer.setLiftSpeed(127);
+
+      robot.scorer.setOn(tp_scorerState.first);
+      robot.scorer.setDirection(tp_scorerState.second);
     }
 
     if (robot.master.get_digital_new_press(DIGITAL_L1)) {
       robot.master.clear_line(1);
-      robot.master.set_text(1, 0, "ARM TOGGLE");
+      // robot.master.set_text(1, 0, "ARM TOGGLE");
       robot.pneumatics.toggleArm();
     }
 
@@ -416,7 +600,6 @@ void opcontrol() {
 
     // Drive
     chassis.arcade(forward, turn);
-
 
     pros::delay(20);
   }

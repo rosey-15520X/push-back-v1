@@ -24,7 +24,8 @@ public:
 
     void setOn(bool on) { state.liftOn = on; }
     void setDirection(bool up) { state.liftDirection = up; }
-
+    void setLiftSpeed(int speed) { state.liftSpeed = speed; }
+    
     void update() {
         if (state.liftOn) {
             int speed = state.liftDirection ? state.liftSpeed : -state.liftSpeed;

@@ -37,10 +37,10 @@ MotorGroup right_motor_group({
 
 lemlib::Drivetrain drivetrain(&left_motor_group, // left motor group
                               &right_motor_group, // right motor group
-                              TRACK_WIDTH, // 14.5 inch track width
-                              lemlib::Omniwheel::NEW_325, // using new 4" omnis
+                              TRACK_WIDTH, // track width in inches
+                              lemlib::Omniwheel::NEW_325, // 3.25" omniwheels
                               DRIVETRAIN_RPM, // drivetrain rpm is 360
-                              HORIZONTAL_DRIFT // horizontal drift is 2 (for now)
+                              HORIZONTAL_DRIFT // horizontal drift
 );
 
 Imu imu(IMU_PORT);
@@ -52,16 +52,26 @@ lemlib::OdomSensors sensors(nullptr, // vertical tracking wheel 1, set to null
                             &imu // inertial sensor
 );
 
-lemlib::ControllerSettings lateral_controller(10, // proportional gain (kP)
-                                              0, // integral gain (kI)
-                                              3, // derivative gain (kD)
+lemlib::ControllerSettings lateral_controller(12, // proportional gain (kP)
+                                              0.5, // integral gain (kI)
+                                              5, // derivative gain (kD)
                                               3, // anti windup
-                                              1, // small error range, in inches
+                                              0.5, // small error range, in inches
                                               100, // small error range timeout, in milliseconds
-                                              3, // large error range, in inches
+                                              2, // large error range, in inches
                                               500, // large error range timeout, in milliseconds
                                               20 // maximum acceleration (slew)
 );
+// lemlib::ControllerSettings lateral_controller(10, // proportional gain (kP)
+//                                               0, // integral gain (kI)
+//                                               3, // derivative gain (kD)
+//                                               3, // anti windup
+//                                               1, // small error range, in inches
+//                                               100, // small error range timeout, in milliseconds
+//                                               3, // large error range, in inches
+//                                               500, // large error range timeout, in milliseconds
+//                                               20 // maximum acceleration (slew)
+
 
 lemlib::ControllerSettings angular_controller(2.5, // proportional gain (kP)
                                               0, // integral gain (kI)

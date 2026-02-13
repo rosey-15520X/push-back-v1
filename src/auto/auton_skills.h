@@ -16,132 +16,179 @@ ASSET(SkillsMoveLoadLG1PT7_txt)
 ASSET(SkillsMoveLoadLG1PT8_txt)
 ASSET(SkillsMoveLoadLG1PT9_txt)
 ASSET(SkillsMoveLoadLG1PT10_txt)
+ASSET(SkillsMoveLoadLG1PT11_txt)
+ASSET(SkillsMoveLoadLG1PT12_txt)
 
 /**
  * Autonomous routine for Skills
  * Full 1-minute skills run
  * @param intake - IntakeHandler reference
+ * @param scorer - ScorerHandler reference
  * @param loaderPiston - Loader piston reference
  */
-inline void autonSkills(IntakeHandler& intake, pros::adi::DigitalOut& loaderPiston) {
+inline void autonSkills(IntakeHandler& intake, ScorerHandler& scorer, pros::adi::DigitalOut& loaderPiston, pros::adi::DigitalOut& scorerPiston) {
     // Starting position (top left corner)
-    chassis.setPose(-62.097, 17.466, 0);
+    chassis.setPose(-54.996, 17.593, 0);
 
-    // ========== PHASE 1: First match loader (top left) ==========
-    // Move to first match loader
+    // PHASE 1.0 START
     chassis.follow(SkillsMoveLoadLG1_txt, 15, 3000, true);
     chassis.waitUntilDone();
+    loaderPiston.set_value(true);
+    delay(500);
+
     chassis.turnToHeading(270, 1000);
     chassis.waitUntilDone();
     
-    // Align with loader
+    // MARK LOADER
+    intake.setPrimaryOn(true);
+    intake.setSecondaryOn(true);
+    intake.setSecondaryDirection(true);  // forward
+    intake.setPrimaryDirection(true);  // forward
+    intake.update();
     chassis.follow(SkillsMoveLoadLG1PT2_txt, 15, 2000, true);
     chassis.waitUntilDone();
-    
-    // Load balls from match loader
-    startMatchLoader(loaderPiston, intake);
-    pros::delay(500);
-    pushMatchLoader(loaderPiston);
-    pros::delay(1000);
-    resetMatchLoader(loaderPiston);
-    pros::delay(500);
-    pushMatchLoader(loaderPiston);
-    pros::delay(1000);
-    resetMatchLoader(loaderPiston);
-    pros::delay(500);
-    pushMatchLoader(loaderPiston);
-    pros::delay(1000);
-    stopMatchLoader(loaderPiston, intake);
-    
-    // ========== PHASE 2: Score at top right goal ==========
-    // Arc across top to right side
-    chassis.follow(SkillsMoveLoadLG1PT3_txt, 15, 5000, true);
+    // // PHASE 1.1 LOAD
+    chassis.setPose(-56.288, 47.329, 270);
+    chassis.moveToPoint(-69.215, 47.329, 800, {.forwards = true}); // OG PT
+    chassis.setPose(-61.215, 47.329, 270);
+
     chassis.waitUntilDone();
+
+    delay(1000);
+
+    intake.setPrimaryOn(false);
+    intake.setSecondaryOn(false);
+    intake.update();
+
+    loaderPiston.set_value(false);
+
+
+    // PHASE 1.2 TRV LOADER
+    chassis.follow(SkillsMoveLoadLG1PT3_txt, 15, 10000, false);
+    chassis.waitUntilDone();
+
     chassis.turnToHeading(90, 1000);
     chassis.waitUntilDone();
-    
-    // Score balls into goal
-    scoreBalls(intake, 2000, false);  // High goal
-    
-    // Move to right side loader
-    chassis.follow(SkillsMoveLoadLG1PT4_txt, 15, 2000, true);
+
+    chassis.moveToPoint(22.164, 46.881, 1000, {.forwards = false});
     chassis.waitUntilDone();
+    scoreBalls(intake, 2000, false, scorer, scorerPiston);
+
+    loaderPiston.set_value(true);
+
+
+    chassis.moveToPoint(47.41, 46.433, 1000, {.forwards = true});
+    // chassis.setPose(47.41, 46.433, 90);
+    chassis.waitUntilDone();
+
+
+    // PHASE 1.3 LOAD
+    intake.setPrimaryOn(true);
+    intake.setSecondaryOn(true);
+    intake.setSecondaryDirection(true);  // forward
+    intake.setPrimaryDirection(true);  // forward
+    intake.update();
+    // Recalibrate odometry + slow approach to loader wall
+    // chassis.setPose(55.025, 46.209, 90);
+    chassis.moveToPoint(69.296, 46.209, 1000, {.forwards=true});
+    chassis.setPose(61.296, 46.209, 90);
+    chassis.waitUntilDone();
+    delay(1000);
+    loaderPiston.set_value(false);
+    intake.setPrimaryOn(false);
+    intake.setSecondaryOn(false);
+    intake.update();
     
-    // Load more balls from right match loader
-    startMatchLoader(loaderPiston, intake);
-    pros::delay(500);
-    pushMatchLoader(loaderPiston);
-    pros::delay(1000);
-    resetMatchLoader(loaderPiston);
-    pros::delay(500);
-    pushMatchLoader(loaderPiston);
-    pros::delay(1000);
-    resetMatchLoader(loaderPiston);
-    pros::delay(500);
-    pushMatchLoader(loaderPiston);
-    pros::delay(1000);
-    stopMatchLoader(loaderPiston, intake);
-    
-    // ========== PHASE 3: Return and score middle ==========
+    // PHASE 1.4 SCORE
     chassis.follow(SkillsMoveLoadLG1PT5_txt, 15, 3000, false);
     chassis.waitUntilDone();
+    chassis.setPose(30.304, 47.071, 90);
+    scoreBalls(intake, 2000, false, scorer, scorerPiston);
+    
+    // PHASE 1~2.0 MOVE AWAY FROM LDL
+    chassis.follow(SkillsMoveLoadLG1PT6_txt, 15, 1000, true);
+    chassis.waitUntilDone();
+    chassis.turnToHeading(180, 1000);
+    chassis.waitUntilDone();
+
+    loaderPiston.set_value(true);
+
+    // PHASE 1~2.1 MOVE TO PNT
+    chassis.follow(SkillsMoveLoadLG1PT7_txt, 15, 6000, true);
+    chassis.waitUntilDone();
     chassis.turnToHeading(90, 1000);
     chassis.waitUntilDone();
     
-    // Score at middle goal
-    scoreBalls(intake, 1500, true);  // Middle goal
-    
-    // ========== PHASE 4: Complex path to bottom area ==========
-    chassis.follow(SkillsMoveLoadLG1PT6_txt, 15, 6000, true);
+    // PHASE 2.2 LOAD
+    intake.setPrimaryOn(true);
+    intake.setSecondaryOn(true);
+    intake.setSecondaryDirection(true);  // forward
+    intake.setPrimaryDirection(true);  // forward
+    intake.update();
+    // MARK LOADER
+    // Recalibrate odometry + slow approach to loader wall
+    // chassis.setPose(55.249, -48.082, 90);
+    chassis.moveToPoint(78.416, -48.082, 1500, {.forwards=true});
+    chassis.setPose(62.416, -48.082, 90);
     chassis.waitUntilDone();
-    chassis.turnToHeading(135, 1000);
-    chassis.waitUntilDone();
-    
-    // Score at bottom middle
-    scoreBalls(intake, 1500, false);
-    
-    // ========== PHASE 5: Move to bottom right loader ==========
-    chassis.follow(SkillsMoveLoadLG1PT8_txt, 15, 4000, true);
+    delay(1000);
+    intake.setPrimaryOn(false);
+    intake.setSecondaryOn(false);
+    intake.update();
+
+    loaderPiston.set_value(false);
+
+    // PHASE 2.3 MOVE FROM LDL
+    chassis.moveToPoint(47.858, -47.41, 3000, {.forwards=false});
     chassis.waitUntilDone();
     chassis.turnToHeading(270, 1000);
     chassis.waitUntilDone();
-    
-    // Load from bottom right loader
-    startMatchLoader(loaderPiston, intake);
-    pros::delay(500);
-    pushMatchLoader(loaderPiston);
-    pros::delay(1000);
-    resetMatchLoader(loaderPiston);
-    pros::delay(500);
-    pushMatchLoader(loaderPiston);
-    pros::delay(1000);
-    resetMatchLoader(loaderPiston);
-    pros::delay(500);
-    pushMatchLoader(loaderPiston);
-    pros::delay(1000);
-    stopMatchLoader(loaderPiston, intake);
-    
-    // ========== PHASE 6: Arc to bottom left ==========
-    chassis.follow(SkillsMoveLoadLG1PT9_txt, 15, 5000, true);
+
+    chassis.follow(SkillsMoveLoadLG1PT9_txt, 15, 7000, true);
+    chassis.waitUntilDone();
+    chassis.turnToHeading(180, 1000);
+    chassis.waitUntilDone();
+
+    // TO LDL LINEUP
+    chassis.moveToPoint(-46.657, -47.858, 3000);
+    chassis.waitUntilDone();
     chassis.turnToHeading(270, 1000);
+    chassis.waitUntilDone();
+
+    chassis.moveToPoint(29.94, -46.962, 3000, {.forwards=false});
+    chassis.waitUntilDone();
+    scoreBalls(intake, 2000, false, scorer, scorerPiston);
+
+    chassis.moveToPoint(-46.657, -47.858, 3000, {.forwards=true});
+    chassis.waitUntilDone();
+
+    // LOAD
+    loaderPiston.set_value(true);
+    // MARK LOADER
+    intake.setPrimaryOn(true);
+    intake.setSecondaryOn(true);
+    intake.setSecondaryDirection(true);  // forward
+    intake.setPrimaryDirection(true);  // forward
+    intake.update();
+    // Recalibrate odometry + slow approach to loader wall
+    chassis.setPose(-57.184, -47.858, 270);
+    chassis.moveToPoint(-63.455, -47.858, 1000, {.forwards=true});
+    chassis.waitUntilDone();
+    delay(1000);
+    loaderPiston.set_value(false);
+    intake.setPrimaryOn(false);
+    intake.setSecondaryOn(false);
+    intake.update();
+
+    // SCORE
+    chassis.follow(SkillsMoveLoadLG1PT11_txt, 15, 3000, false);
+    chassis.waitUntilDone();
+    scoreBalls(intake, 2000, false, scorer, scorerPiston);
+
+    // PARK
+    chassis.follow(SkillsMoveLoadLG1PT12_txt, 15, 3000, true);
+    chassis.waitUntilDone();
+
     
-    // Score at bottom left
-    scoreBalls(intake, 2000, false);
-    
-    // ========== PHASE 7: Final position ==========
-    chassis.follow(SkillsMoveLoadLG1PT10_txt, 15, 2000, false);
-    
-    // Load from bottom left loader
-    startMatchLoader(loaderPiston, intake);
-    pros::delay(500);
-    pushMatchLoader(loaderPiston);
-    pros::delay(1000);
-    resetMatchLoader(loaderPiston);
-    pros::delay(500);
-    pushMatchLoader(loaderPiston);
-    pros::delay(1000);
-    stopMatchLoader(loaderPiston, intake);
-    
-    // Final score
-    scoreBalls(intake, 2000, false);
+
 }

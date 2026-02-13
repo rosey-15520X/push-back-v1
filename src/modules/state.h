@@ -3,7 +3,7 @@
 #define INTAKE_BASE_PRIMARY_SPEED 127
 #define INTAKE_BASE_SECONDARY_SPEED 127
 
-#define SCORER_SPEED 100
+#define SCORER_SPEED 127
 
 struct IntakeState {
     // Intake base
