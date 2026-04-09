@@ -26,11 +26,11 @@ using namespace pros;
 MotorGroup left_motor_group({
     -LEFT_FRONT_MOTOR_PORT,
     -LEFT_MIDDLE_MOTOR_PORT,
-    -LEFT_BACK_MOTOR_PORT
+    LEFT_BACK_MOTOR_PORT
 }, MOTOR_GEARSET, v5::MotorUnits::degrees);
 
 MotorGroup right_motor_group({
-    RIGHT_FRONT_MOTOR_PORT,
+    -RIGHT_FRONT_MOTOR_PORT,
     RIGHT_MIDDLE_MOTOR_PORT,
     RIGHT_BACK_MOTOR_PORT
 }, MOTOR_GEARSET, v5::MotorUnits::degrees);

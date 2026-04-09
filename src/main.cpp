@@ -12,7 +12,7 @@
 #include <iostream>
 
 
-#define DISTANCE_SENSOR_FRONT 18
+#define DISTANCE_SENSOR_FRONT 16
 using namespace std;
 
 // ============================================================================
@@ -51,8 +51,8 @@ void updateAutonDisplay() {
 }
 
 // Motor ports
-#define INTAKE_BASE_PRIMARY -7
-#define INTAKE_BASE_SECONDARY -6
+#define INTAKE_BASE_PRIMARY -16
+#define INTAKE_BASE_SECONDARY 6
 #define SCORER_LIFT_PORT 2
 
 // Pneumatics ADI ports (3-wire)
@@ -248,16 +248,18 @@ void autonomous() {
 
   // return autonPeriodRightOne(robot.intake, robot.scorer, robot.loaderPiston,
   //   robot.blockPiston, 2);
-  return RELIM_autonPeriod(robot.intake, robot.scorer, robot.loaderPiston, robot.blockPiston, robot.armPiston, 2);
+  // return RELIM_autonPeriod(robot.intake, robot.scorer, robot.loaderPiston, robot.blockPiston, robot.armPiston, 2);
   // // ========================================================
   // return autonPeriodRightOne(robot.intake, robot.scorer, robot.loaderPiston,
   //                 robot.blockPiston, 1);
+  Distance distanceSensorFront{DISTANCE_SENSOR_FRONT};
+
   // delay(10000);
-  // return autonSkills(robot.intake, robot.scorer, robot.loaderPiston, robot.blockPiston);
+  // return autonSkills(robot.intake, robot.scorer, robot.loaderPiston, robot.blockPiston, distanceSensorFront);
 
   switch (autonSelector) {
   case 0:
-    return autonSkills(robot.intake, robot.scorer, robot.loaderPiston, robot.blockPiston);
+    return autonSkills(robot.intake, robot.scorer, robot.loaderPiston, robot.blockPiston, distanceSensorFront);
   case 1:
     return autonPeriodLeft(robot.intake, robot.scorer, robot.loaderPiston,
                            robot.blockPiston, 2);

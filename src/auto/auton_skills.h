@@ -26,7 +26,7 @@ ASSET(SkillsMoveLoadLG1PT12_txt)
  * @param scorer - ScorerHandler reference
  * @param loaderPiston - Loader piston reference
  */
-inline void autonSkills(IntakeHandler& intake, ScorerHandler& scorer, pros::adi::DigitalOut& loaderPiston, pros::adi::DigitalOut& scorerPiston) {
+inline void autonSkills(IntakeHandler& intake, ScorerHandler& scorer, pros::adi::DigitalOut& loaderPiston, pros::adi::DigitalOut& scorerPiston, pros::Distance& distanceSensor) {
     // Starting position (top left corner)
     chassis.setPose(-54.996, 17.593, 0);
 
@@ -50,7 +50,7 @@ inline void autonSkills(IntakeHandler& intake, ScorerHandler& scorer, pros::adi:
     // // PHASE 1.1 LOAD
     chassis.setPose(-56.288, 47.329, 270);
     chassis.moveToPoint(-69.215, 47.329, 800, {.forwards = true}); // OG PT
-    chassis.setPose(-61.215, 47.329, 270);
+    chassis.setPose(-56.581, 46.947, 270);
 
     chassis.waitUntilDone();
 
@@ -67,10 +67,22 @@ inline void autonSkills(IntakeHandler& intake, ScorerHandler& scorer, pros::adi:
     chassis.follow(SkillsMoveLoadLG1PT3_txt, 15, 10000, false);
     chassis.waitUntilDone();
 
+    // RESET POSITION
+    // distance snesor port 10
+    // // get distance from distance sensor
+    // int distance = distanceSensor.get_distance() / 25.4;
+    
+    // chassis.setPose(47.41, 140 - distance - 1, 180);
+    // chassis.moveToPoint(47.41, 46.433, 1000, {.forwards = true});
+    
+
     chassis.turnToHeading(90, 1000);
     chassis.waitUntilDone();
+    chassis.setPose(47.41, 46.433, 90);
 
-    chassis.moveToPoint(22.164, 46.881, 1000, {.forwards = false});
+    chassis.waitUntilDone();
+
+    chassis.moveToPoint(22.164, 46.433, 1000, {.forwards = false});
     chassis.waitUntilDone();
     scoreBalls(intake, 2000, false, scorer, scorerPiston);
 
@@ -128,51 +140,41 @@ inline void autonSkills(IntakeHandler& intake, ScorerHandler& scorer, pros::adi:
     // MARK LOADER
     // Recalibrate odometry + slow approach to loader wall
     // chassis.setPose(55.249, -48.082, 90);
-    chassis.moveToPoint(78.416, -48.082, 1500, {.forwards=true});
-    chassis.setPose(62.416, -48.082, 90);
+    chassis.moveToPoint(69, -47.41, 1500, {.forwards=true});
+    chassis.waitUntilDone();
+    chassis.setPose(56.628, -47.41, 90);
     chassis.waitUntilDone();
     delay(1000);
     intake.setPrimaryOn(false);
     intake.setSecondaryOn(false);
     intake.update();
 
-    loaderPiston.set_value(false);
-
     // PHASE 2.3 MOVE FROM LDL
     chassis.moveToPoint(47.858, -47.41, 3000, {.forwards=false});
     chassis.waitUntilDone();
-    chassis.turnToHeading(270, 1000);
+    chassis.turnToHeading(180, 1000);
     chassis.waitUntilDone();
+    loaderPiston.set_value(false);
+
 
     chassis.follow(SkillsMoveLoadLG1PT9_txt, 15, 7000, true);
     chassis.waitUntilDone();
-    chassis.turnToHeading(180, 1000);
-    chassis.waitUntilDone();
-
-    // TO LDL LINEUP
-    chassis.moveToPoint(-46.657, -47.858, 3000);
-    chassis.waitUntilDone();
     chassis.turnToHeading(270, 1000);
     chassis.waitUntilDone();
 
-    chassis.moveToPoint(29.94, -46.962, 3000, {.forwards=false});
+    chassis.moveToPoint(29.94, -47.41, 3000, {.forwards=false});
     chassis.waitUntilDone();
-    scoreBalls(intake, 2000, false, scorer, scorerPiston);
-
-    chassis.moveToPoint(-46.657, -47.858, 3000, {.forwards=true});
-    chassis.waitUntilDone();
-
-    // LOAD
     loaderPiston.set_value(true);
-    // MARK LOADER
+    scoreBalls(intake, 2000, false, scorer, scorerPiston);
     intake.setPrimaryOn(true);
     intake.setSecondaryOn(true);
     intake.setSecondaryDirection(true);  // forward
     intake.setPrimaryDirection(true);  // forward
     intake.update();
-    // Recalibrate odometry + slow approach to loader wall
-    chassis.setPose(-57.184, -47.858, 270);
-    chassis.moveToPoint(-63.455, -47.858, 1000, {.forwards=true});
+    chassis.moveToPoint(-46.657, -47.41, 3000, {.forwards=true});
+    chassis.waitUntilDone();
+    loaderPiston.set_value(true);
+    chassis.moveToPoint(-63.455, -47.41, 1000, {.forwards=true});
     chassis.waitUntilDone();
     delay(1000);
     loaderPiston.set_value(false);
