@@ -89,6 +89,32 @@ inline void loadBalls(IntakeHandler& intake, int time) {
     intake.update();
 }
 
+// Start intake in background - keeps running during path following
+inline pros::Task* startIntakeTask(IntakeHandler& intake, bool forward = true) {
+    intake.setPrimaryOn(true);
+    intake.setSecondaryOn(true);
+    intake.setSecondaryDirection(forward);
+    intake.setPrimaryDirection(forward);
+    
+    return new pros::Task([](void* param) {
+        IntakeHandler* i = static_cast<IntakeHandler*>(param);
+        while (true) {
+            i->update();
+            pros::delay(20);
+        }
+    }, &intake, "intakeTask");
+}
+
+inline void stopIntakeTask(pros::Task* task, IntakeHandler& intake) {
+    if (task) {
+        task->remove();
+        delete task;
+    }
+    intake.setPrimaryOn(false);
+    intake.setSecondaryOn(false);
+    intake.update();
+}
+
 inline void shootBalls(IntakeHandler& intake, int time) {
     intake.setPrimaryOn(true);
     intake.setSecondaryOn(true);

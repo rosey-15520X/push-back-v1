@@ -390,7 +390,9 @@ inline void RELIM_autonPeriod(IntakeHandler& intake, ScorerHandler& scorer, adi:
     float m = mirror ? -1.0f : 1.0f;  // Y multiplier
     
     // Starting position 
-    chassis.setPose(-54.996, -17.593, mirror ? 180 : 180);
+    chassis.setPose(-54.139, -17.246, mirror ? 180 : 180);
+
+    chassis.turnToHeading(135, 1000);
 
     // Move in front of match loader
     followPath(RELIMPeriodMoveLoadLG1PT1_txt, 12, 3000, true, mirror);
@@ -401,8 +403,8 @@ inline void RELIM_autonPeriod(IntakeHandler& intake, ScorerHandler& scorer, adi:
 
     intake.setPrimaryOn(true);
     intake.setSecondaryOn(true);
-    intake.setSecondaryDirection(true);  // forward
-    intake.setPrimaryDirection(true);
+    intake.setSecondaryDirection(false);  // forward
+    intake.setPrimaryDirection(false);
     intake.update();
 
     followPath(RELIMPeriodMoveLoadLG1PT2_txt, 15, 1000, true, mirror);
@@ -411,12 +413,14 @@ inline void RELIM_autonPeriod(IntakeHandler& intake, ScorerHandler& scorer, adi:
 
 
     followPath(RELIMPeriodMoveLoadLG1PT4_txt, 15, 1000, false, mirror);
-    chassis.setPose(-46.881, -46.881, 45);
-
-
+    chassis.setPose(-40.881, -46.881, 45);
     loaderPiston.set_value(true);
+
+
+
     chassis.turnToHeading(mirror ? mirrorHeading(270) : 270, 1000);
     chassis.waitUntilDone();
+
     // deploy loader
     // retract scorer
     scorerPiston.set_value(false);
@@ -424,22 +428,18 @@ inline void RELIM_autonPeriod(IntakeHandler& intake, ScorerHandler& scorer, adi:
 
     intake.setPrimaryOn(true);
     intake.setSecondaryOn(true);
-    intake.setSecondaryDirection(true);  // forward
+    intake.setSecondaryDirection(false);  // forward
     intake.update();
 
     followPath(RIGHTPeriodMoveLoadLG1PT2_txt, 15, 1500, true, mirror);
 
     chassis.setPose(-56.288, -45.537, 270);
-    chassis.moveToPoint(-61.215, -46.209, 800, {.forwards = true});
-    chassis.moveToPoint(-60.215, -46.209, 200, {.forwards = false});
-    chassis.moveToPoint(-61.215, -46.209, 800, {.forwards = true});
 
     // chassis.moveToPoint(-59.215, 46.209, 500, {.forwards = false});
     // chassis.moveToPoint(-61.215, 46.209, 500, {.forwards = true});
 
-    chassis.setPose(-61.215, -46.209, 270);
 
-    pros::delay(400);
+    pros::delay(1700);
 
     intake.setPrimaryOn(false);
     intake.setSecondaryOn(false);
@@ -456,8 +456,8 @@ inline void RELIM_autonPeriod(IntakeHandler& intake, ScorerHandler& scorer, adi:
     followPath(RIGHTPeriodMoveLoadLG1PT3_txt, 15, 1800, false, mirror);
     intake.setPrimaryOn(true);
     intake.setSecondaryOn(true);
-    intake.setSecondaryDirection(true);
-    intake.setPrimaryDirection(true);
+    intake.setSecondaryDirection(false);
+    intake.setPrimaryDirection(false);
     scorer.setOn(true);
     scorer.setDirection(true);
     scorer.update();
@@ -471,16 +471,17 @@ inline void RELIM_autonPeriod(IntakeHandler& intake, ScorerHandler& scorer, adi:
     // // // Move forward 17 inches to target
     // chassis.moveToPoint(-47.329, 47.329 * (mirror ? -1 : 1), 2000, {.forwards = true});
     // chassis.waitUntilDone();
-    scorerPiston.set_value(false);
+    descorePiston.set_value(true);
     // Move away
     // chassis.setPose(-47.932, -47.932, 270);
     // chassis.turnToHeading(mirror ? mirrorHeading(135) : 135, 1000);
     // chassis.waitUntilDone();
-    descorePiston.set_value(true);
-
     followPath(RELIMPeriodMoveLoadLG1PT05_txt, 15, 1000, true, mirror);
     chassis.turnToHeading(0, 1000);
-    followPath(RELIMPeriodMoveLoadLG1PT06_txt, 15, 1000, true, mirror);
-
-
+    chassis.moveToPoint(-40.162, -60.647, 1000, {.forwards = false});
+    chassis.turnToHeading(270, 1000);
+    chassis.moveToPoint(-19.276, -55, 1000, {.forwards = false});
+    chassis.turnToHeading(280, 1000);
+    chassis.moveToPoint(-20, -55, 1000, {.forwards = false});
+    chassis.waitUntilDone();
 }

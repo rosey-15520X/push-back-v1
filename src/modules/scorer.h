@@ -22,6 +22,11 @@ public:
         state.liftDirection = !state.liftDirection;
     }
 
+    void setLiftDirection(bool direction) {
+        // true for midgoal
+        state.liftDirection = direction;
+    }
+
     void setOn(bool on) { state.liftOn = on; }
     void setDirection(bool up) { state.liftDirection = up; }
     void setLiftSpeed(int speed) { state.liftSpeed = speed; }

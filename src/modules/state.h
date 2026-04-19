@@ -18,6 +18,7 @@ struct IntakeState {
 };
 
 struct ScorerState {
+    bool middleGoal = false;
     bool liftDirection = true;
     bool liftOn = false;
     int liftSpeed = SCORER_SPEED;

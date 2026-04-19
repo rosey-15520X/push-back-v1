@@ -8,9 +8,8 @@
 #include "modules/scorer.h"
 #include "modules/state.h"
 #include "pros/misc.h"
-#include "pros/misc.hpp"
 
-#define DISTANCE_SENSOR_TOP 16
+#define DISTANCE_SENSOR_FRONT 16
 using namespace std;
 
 // ============================================================================
@@ -50,13 +49,13 @@ void updateAutonDisplay() {
 
 // Motor ports
 #define INTAKE_BASE_PRIMARY 9
-#define INTAKE_BASE_SECONDARY 1
-#define SCORER_LIFT_PORT 17
+#define INTAKE_BASE_SECONDARY -1
+#define SCORER_LIFT_PORT 2
 
 // Pneumatics ADI ports (3-wire)
-#define BLOCK_PISTON_PORT 'B'
-#define LOADER_PISTON_PORT 'H'
-#define ARM_PISTON_PORT 'G'
+#define BLOCK_PISTON_PORT 'C'
+#define LOADER_PISTON_PORT 'B'
+#define ARM_PISTON_PORT 'D'
 #define MIDDLE_GOAL_PISTON_PORT 'A'
 #define OPTICAL_PORT_TOP 8
 #define OPTICAL_PORT_BOTTOM 15
@@ -83,7 +82,7 @@ struct Robot {
   // Sensors
   Optical opticalSensorTop{OPTICAL_PORT_TOP};
   Optical opticalSensorBottom{OPTICAL_PORT_BOTTOM};
-  // Distance topSensor{DISTANCE_SENSOR_TOP};
+  // Distance distanceSensorFront{DISTANCE_SENSOR_FRONT};
 
   // Handlers (initialized in constructor)
   PneumaticsHandler pneumatics;
@@ -94,7 +93,7 @@ struct Robot {
   Controller master{E_CONTROLLER_MASTER};
 
   Robot()
-      : pneumatics(blockPiston, loaderPiston, middleGoalPiston, armPiston, state.scorer,
+      : pneumatics(blockPiston, loaderPiston, armPiston, middleGoalPiston, state.scorer,
                    state.intake, state.loader, state.arm),
         intake(intakeBasePrimary, intakeBaseSecondary, state.intake),
         scorer(scorerLift, state.scorer) {
@@ -252,14 +251,14 @@ void autonomous() {
   // // ========================================================
   // return autonPeriodRightOne(robot.intake, robot.scorer, robot.loaderPiston,
   //                 robot.blockPiston, 1);
-  Distance topSensor{DISTANCE_SENSOR_TOP};
+  Distance distanceSensorFront{DISTANCE_SENSOR_FRONT};
 
   // delay(10000);
-  // return autonSkills(robot.intake, robot.scorer, robot.loaderPiston, robot.blockPiston, topSensor);
+  // return autonSkills(robot.intake, robot.scorer, robot.loaderPiston, robot.blockPiston, distanceSensorFront);
 
   // switch (autonSelector) {
   // case 0:
-  //   return autonSkills(robot.intake, robot.scorer, robot.loaderPiston, robot.blockPiston, topSensor);
+  //   return autonSkills(robot.intake, robot.scorer, robot.loaderPiston, robot.blockPiston, distanceSensorFront);
   // case 1:
   //   return autonPeriodLeft(robot.intake, robot.scorer, robot.loaderPiston,
   //                          robot.blockPiston, 2);
@@ -269,11 +268,11 @@ void autonomous() {
   // default:
   //   return;
   // }
-  RELIM_autonPeriod(robot.intake, robot.scorer, robot.loaderPiston, robot.blockPiston, robot.armPiston, 1);
+
   // switch (autonSelector) {
   //   case 0:  // Left
-      // autonPeriodLeft(robot.intake, robot.scorer, robot.loaderPiston, robot.blockPiston,
-      // 1);
+  //     autonPeriodLeft(robot.intake, robot.loaderPiston, robot.blockPiston,
+  //     1); break;
   //   case 1:  // Left 2 Goals
   //     autonPeriodLeft(robot.intake, robot.loaderPiston, robot.blockPiston,
   //     2); break;
@@ -308,91 +307,7 @@ void autonomous() {
  * task, not resume it from where it left off.
  */
 
-struct IntakeThreadCtx {
-  Robot *robot;
-  Distance *topSensor;
-  bool *r2HoldActive;
-  bool *restoreRequested;
-  int *rotationEncoding;
-  pair<bool, bool> *r2PrimaryState;
-  pair<bool, bool> *r2SecondaryState;
-  pair<bool, bool> *r2ScorerState;
-};
-
-// void intakeThreadFn(void *p) {
-//   auto *ctx = static_cast<IntakeThreadCtx *>(p);
-
-//   while (true) {
-//     if (*(ctx->r2HoldActive)) {
-//       lcd::print(6, "R2 HOLD ACTIVE");
-//     } else if (*(ctx->restoreRequested)) {
-//       lcd::print(6, "R2 RESTORE REQUESTED");
-//     } else {
-//       lcd::print(6, "R2 HOLD INACTIVE");
-//     }
-//     pros::delay(20);
-//   }
-// }
-void intakeThreadFn(void *p) {
-  auto *ctx = static_cast<IntakeThreadCtx *>(p);
-
-  while (true) {
-    if (*(ctx->r2HoldActive)) {
-      lcd::print(6, "R2 HOLD ACTIVE");
-      int distanceTop = ctx->topSensor->get_distance();
-      if (distanceTop < 100) {
-        (*(ctx->rotationEncoding))++;
-        ctx->robot->intake.setPrimaryOn(true);
-        ctx->robot->intake.setSecondaryOn(true);
-        ctx->robot->intake.setPrimaryDirection(true);
-        ctx->robot->intake.setSecondaryDirection(true);
-        ctx->robot->intake.setPrimarySpeed(100);
-        ctx->robot->intake.setSecondarySpeed(100);
-        ctx->robot->scorer.setLiftSpeed(127);
-        ctx->robot->scorer.setOn(true);
-        ctx->robot->scorer.setDirection(false);
-      } else {
-        ctx->robot->intake.setPrimaryOn(true);
-        ctx->robot->intake.setSecondaryOn(true);
-        lcd::print(6, "R2 SHOOT");
-
-        ctx->robot->intake.setPrimaryDirection(false);
-        ctx->robot->intake.setSecondaryDirection(false);
-        ctx->robot->intake.setPrimarySpeed(127);
-        ctx->robot->intake.setSecondarySpeed(127);
-        ctx->robot->scorer.setLiftSpeed(127);
-        ctx->robot->scorer.setOn(true);
-        ctx->robot->scorer.setDirection(false);
-      }
-    } else if (*(ctx->restoreRequested)) {
-      lcd::print(6, "R2 RESTORE REQUESTED");
-
-        ctx->robot->intake.setPrimaryOn(false);
-        ctx->robot->intake.setPrimaryDirection(true);
-        ctx->robot->intake.setPrimarySpeed(127);
-        ctx->robot->intake.setSecondaryOn(false);
-        ctx->robot->intake.setSecondaryDirection(true);
-        ctx->robot->intake.setSecondarySpeed(127);
-        ctx->robot->scorer.setOn(false);
-        ctx->robot->scorer.setDirection(true);
-        *(ctx->restoreRequested) = false;
-    }
-    else {
-      lcd::print(6, "R2 HOLD INACTIVE");
-    }
-
-    pros::delay(20);
-  }
-}
-
-
 void opcontrol() {
-
-  // chassis.setPose(0, 0, 0);
-
-  // chassis.turnToHeading(90, 1000);
-
-
   static bool scoringMiddleGoal = false;
   Robot robot;
 
@@ -459,58 +374,30 @@ void opcontrol() {
 
   int cycle = 0;
 
-  Distance topSensor{DISTANCE_SENSOR_TOP};
-  pair<bool, bool> r1PrimaryState = {false, false};   // on, direction
-  pair<bool, bool> r1SecondaryState = {false, false}; // on, direction
-  pair<bool, bool> r1ScorerState = {false, false};    // on, direction
-  pair<bool, bool> r2PrimaryState = {false, false};   // on, direction
-  pair<bool, bool> r2SecondaryState = {false, false}; // on, direction
-  pair<bool, bool> r2ScorerState = {false, false};    // on, direction
-  robot.pneumatics.setArm(true);
-  bool r2HoldActive = false;
-  bool r2RestoreRequested = false;
-  int r2RotationEncoding = 0;
-  IntakeThreadCtx intakeCtx = {.robot = &robot,
-                               .topSensor = &topSensor,
-                               .r2HoldActive = &r2HoldActive,
-                               .restoreRequested = &r2RestoreRequested,
-                               .rotationEncoding = &r2RotationEncoding,
-                               .r2PrimaryState = &r2PrimaryState,
-                               .r2SecondaryState = &r2SecondaryState,
-                               .r2ScorerState = &r2ScorerState};
-  pros::Task intakeTask(intakeThreadFn, &intakeCtx, "Intake Thread");
+  Distance distanceSensorFront{DISTANCE_SENSOR_FRONT};
 
-  // topSensor.(100);
-  robot.intake.setPrimaryDirection(false);
-  robot.intake.setSecondaryDirection(false);
-  robot.scorer.setDirection(true);
+  // distanceSensorFront.(100);
+
   int blockDetectedTime = -1;
 
   while (true) {
-    int distanceTop = topSensor.get_distance();
-        // // HANDLE TOP OPTICAL SENSOR
-    int hueUpper = robot.opticalSensorTop.get_hue();
-    int hueBottom = robot.opticalSensorBottom.get_hue();
-    if (cycle % 50 == 0) {
-      // lcd::print(4, "BLOCK DETECTED TIME: %d", blockDetectedTime);
+    int distanceFront = distanceSensorFront.get_distance();
+
+    if (cycle % 20 == 0) {
+      lcd::print(4, "BLOCK DETECTED TIME: %d", blockDetectedTime);
   
-    if (distanceTop< 100 && blockDetectedTime == -1) {
+    if (distanceFront< 100 && blockDetectedTime == -1) {
       blockDetectedTime = pros::millis();
-      // lcd::print(3, "BLOCK DETECTED");
+      lcd::print(3, "BLOCK DETECTED");
     }
-    if (distanceTop < 100 && blockDetectedTime != -1 && pros::millis() - blockDetectedTime > 3000) {
+    if (distanceFront < 100 && blockDetectedTime != -1 && pros::millis() - blockDetectedTime > 3000) {
       blockDetectedTime = -1;
-      robot.scorer.setOn(false);
+      // robot.scorer.setOn(false);
     }
-    if (distanceTop > 100 && blockDetectedTime != -1) {
+    if (distanceFront > 100 && blockDetectedTime != -1) {
       blockDetectedTime = -1;
-      // lcd::print(3, "BLOCK RELEASED");
+      lcd::print(3, "BLOCK RELEASED");
     }
-//     lcd::print(0, "HUE(UPPER): %d %c", hueUpper,
-//       isRed(hueUpper) ? 'R' : (isBlue(hueUpper) ? 'B' : 'N'));
-// lcd::print(1, "HUE(BOTTOM): %d %c", hueBottom,
-//       isRed(hueBottom) ? 'R' : (isBlue(hueBottom) ? 'B' : 'N'));
-// lcd::print(2, "DISTANCE FRONT: %d", distanceTop);
     }
 
     cycle++;
@@ -521,23 +408,47 @@ void opcontrol() {
 
 
     if (cycle % 25 == 0) {
-      robot.master.print(1, 0, "A %s  B %s", robot.intake.getState().primaryDirection ? "INV" : "FWD", robot.scorer.getState().liftDirection ? "FWD" : "INV");
+      robot.master.print(1, 0, "A %s  B %s", robot.intake.getState().primaryDirection ? "FWD" : "INV", robot.scorer.getState().liftDirection ? "FWD" : "INV");
     }
 
-    // toggle intake and scorer
-    if (robot.master.get_digital_new_press(E_CONTROLLER_DIGITAL_X)) {
+    // Intake controls
+    if (robot.master.get_digital_new_press(DIGITAL_R1)) {
       robot.master.clear_line(1);
+      // robot.master.set_text(1, 0, "INTAKE_TOGGLE");
       robot.intake.toggle();
-      robot.scorer.toggle();
     }
 
-    // toggle intake and scorer direction
     if (robot.master.get_digital_new_press(DIGITAL_A)) {
       robot.master.clear_line(1);
+      // robot.master.set_text(1, 0, "SYSTEM_REVERSE");
       robot.intake.toggleDirection();
-      robot.scorer.toggleDirection();
     }
 
+    if (robot.master.get_digital_new_press(DIGITAL_L2)) {
+      robot.master.clear_line(1);
+      robot.pneumatics.toggleMiddleGoal();
+
+      if (robot.pneumatics.getMiddleGoal()) {
+        robot.scorer.setLiftDirection(false);
+      } else {
+        robot.scorer.setLiftDirection(true);
+      }
+
+    }
+
+    // // HANDLE TOP OPTICAL SENSOR
+    int hueUpper = robot.opticalSensorTop.get_hue();
+    int hueBottom = robot.opticalSensorBottom.get_hue();
+
+    // Only update LCD every 10 cycles (~200ms) to avoid rate limiting
+    // (Color handling now runs on separate thread)
+    if (cycle % 10 == 0) {
+      lcd::print(0, "HUE(UPPER): %d %c", hueUpper,
+                 isRed(hueUpper) ? 'R' : (isBlue(hueUpper) ? 'B' : 'N'));
+      lcd::print(1, "HUE(BOTTOM): %d %c", hueBottom,
+                 isRed(hueBottom) ? 'R' : (isBlue(hueBottom) ? 'B' : 'N'));
+      lcd::print(2, "DISTANCE FRONT: %d", distanceFront);
+    }
 
     // // IMPORTANT: Don't `continue;` here — that skips driver control +
     // drivetrain update.
@@ -566,10 +477,21 @@ void opcontrol() {
     // 	scorer.toggleDirection();
     // }
 
+    if (robot.master.get_digital_new_press(DIGITAL_R2)) {
+      robot.master.clear_line(1);
+      robot.scorer.toggle();
+    }
+
     // Pneumatics controls
     if (robot.master.get_digital_new_press(DIGITAL_L1)) {
       robot.master.clear_line(1);
       robot.pneumatics.toggleBlock();
+    }
+
+    if (robot.master.get_digital_new_press(DIGITAL_B)) {
+      robot.master.clear_line(1);
+      // robot.pneumatics.toggleMiddleGoal();
+      robot.scorer.toggleDirection();
     }
 
     if (robot.master.get_digital_new_press(E_CONTROLLER_DIGITAL_DOWN)) {
@@ -577,48 +499,96 @@ void opcontrol() {
       robot.pneumatics.toggleLoader();
     }
 
-    // Macro for top goal
-    if (robot.master.get_digital_new_press(DIGITAL_R1)) {
-      r1PrimaryState = {robot.intake.getState().primaryOn,
-                         robot.intake.getState().primaryDirection};
-      r1SecondaryState = {robot.intake.getState().secondaryOn,
-                           robot.intake.getState().secondaryDirection};
-      r1ScorerState = {robot.scorer.getState().liftOn,
-                        robot.scorer.getState().liftDirection};
+    static pair<bool, bool> tp_primaryState = {false, false};   // on, direction
+    static pair<bool, bool> tp_secondaryState = {false, false}; // on, direction
+    static pair<bool, bool> tp_scorerState = {false, false};    // on, direction
 
-      robot.pneumatics.setBlock(true);
-      // Turn on intake to intake
-      robot.intake.setPrimaryOn(true);
-      robot.intake.setSecondaryOn(true);
-      robot.intake.setPrimaryDirection(false);
-      robot.intake.setSecondaryDirection(false);
-      robot.scorer.setOn(true);
-      robot.scorer.setDirection(true);
-    } else if (robot.master.get_digital_new_release(DIGITAL_R1)) {
-      robot.pneumatics.setBlock(false);
-      robot.intake.setPrimaryOn(r1PrimaryState.first);
-      robot.intake.setPrimaryDirection(r1PrimaryState.second);
-      robot.intake.setSecondaryOn(r1SecondaryState.first);
-      robot.intake.setSecondaryDirection(r1SecondaryState.second);
-      robot.scorer.setOn(r1ScorerState.first);
-      robot.scorer.setDirection(r1ScorerState.second);
-    }
+    // if (robot.master.get_digital_new_press(E_CONTROLLER_DIGITAL_DOWN)) {
+    //   tp_primaryState = {robot.intake.getState().primaryOn,
+    //                      robot.intake.getState().primaryDirection};
+    //   tp_secondaryState = {robot.intake.getState().secondaryOn,
+    //                        robot.intake.getState().secondaryDirection};
+    //   robot.intake.setPrimaryOn(true);
+    //   robot.intake.setSecondaryOn(true);
+    //   robot.intake.setPrimaryDirection(false);
+    //   robot.intake.setSecondaryDirection(false);
+    //   robot.intake.setPrimarySpeed(127 * 0.75);
+    //   robot.intake.setSecondarySpeed(127 * 0.75);
+    // } else if (robot.master.get_digital_new_release(
+    //                E_CONTROLLER_DIGITAL_DOWN)) {
+    //   robot.intake.setPrimaryOn(tp_primaryState.first);
+    //   robot.intake.setPrimaryDirection(tp_primaryState.second);
+    //   robot.intake.setSecondaryOn(tp_secondaryState.first);
+    //   robot.intake.setSecondaryDirection(tp_secondaryState.second);
 
-    if (robot.master.get_digital_new_press(DIGITAL_R2)) {
-      robot.pneumatics.setMiddleGoal(true);
-      // lcd::print(7, "MIDDLE GOAL ON");
-      r2RotationEncoding = 0;
-      r2RestoreRequested = false;
-      r2HoldActive = true;
-    } 
-    
-    else if (robot.master.get_digital_new_release(DIGITAL_R2)) {
-      robot.pneumatics.setMiddleGoal(false);
-      r2HoldActive = false;
-      r2RestoreRequested = true;
-      // lcd::print(7, "MIDDLE GOAL OFF");
-    }
+    //   robot.intake.setPrimarySpeed(127);
+    //   robot.intake.setSecondarySpeed(127);
+    // }
 
+    // if (robot.master.get_digital_new_press(E_CONTROLLER_DIGITAL_UP)) {
+    //   tp_primaryState = {robot.intake.getState().primaryOn,
+    //                      robot.intake.getState().primaryDirection};
+    //   tp_secondaryState = {robot.intake.getState().secondaryOn,
+    //                        robot.intake.getState().secondaryDirection};
+    //   tp_scorerState = {robot.scorer.getState().liftOn,
+    //                     robot.scorer.getState().liftDirection};
+    //   robot.intake.setPrimaryOn(true);
+    //   robot.intake.setSecondaryOn(true);
+    //   robot.scorer.setOn(true);
+    //   robot.scorer.setDirection(false);
+    //   robot.intake.setPrimaryDirection(false);
+    //   robot.intake.setSecondaryDirection(false);
+    //   robot.intake.setPrimarySpeed(127 * 0.5);
+    //   robot.intake.setSecondarySpeed(127 * 0.5);
+    // } else if (robot.master.get_digital_new_release(E_CONTROLLER_DIGITAL_UP)) {
+    //   robot.intake.setPrimaryOn(tp_primaryState.first);
+    //   robot.intake.setPrimaryDirection(tp_primaryState.second);
+    //   robot.intake.setSecondaryOn(tp_secondaryState.first);
+    //   robot.intake.setSecondaryDirection(tp_secondaryState.second);
+    //   robot.scorer.setOn(tp_scorerState.first);
+    //   robot.scorer.setDirection(tp_scorerState.second);
+    //   robot.intake.setPrimarySpeed(127);
+    //   robot.intake.setSecondarySpeed(127);
+    //   robot.scorer.setLiftSpeed(127);
+    // }
+
+    // if (robot.master.get_digital_new_press(DIGITAL_L2)) {
+    //   tp_primaryState = {robot.intake.getState().primaryOn,
+    //                      robot.intake.getState().primaryDirection};
+    //   tp_secondaryState = {robot.intake.getState().secondaryOn,
+    //                        robot.intake.getState().secondaryDirection};
+
+    //   scoringMiddleGoal = true;
+
+    //   robot.intake.setPrimaryOn(true);
+    //   robot.intake.setSecondaryOn(true);
+    //   robot.intake.setSecondaryDirection(true);
+
+    //   robot.intake.setPrimaryDirection(true);
+
+    //   robot.intake.setPrimarySpeed(127 * 0.5);
+    //   robot.intake.setSecondarySpeed(127 * 0.5);
+
+    //   robot.scorer.setLiftSpeed(127 * 0.5);
+    //   tp_scorerState = {robot.scorer.getState().liftOn,
+    //                     robot.scorer.getState().liftDirection};
+    //   robot.scorer.setOn(true);
+    //   robot.scorer.setDirection(false);
+    // } else if (robot.master.get_digital_new_release(E_CONTROLLER_DIGITAL_RIGHT)) {
+    //   scoringMiddleGoal = false;
+    //   robot.intake.setPrimaryOn(tp_primaryState.first);
+    //   robot.intake.setPrimaryDirection(tp_primaryState.second);
+    //   robot.intake.setSecondaryOn(tp_secondaryState.first);
+    //   robot.intake.setSecondaryDirection(tp_secondaryState.second);
+
+    //   robot.intake.setPrimarySpeed(127);
+    //   robot.intake.setSecondarySpeed(127);
+
+    //   robot.scorer.setLiftSpeed(127);
+
+    //   robot.scorer.setOn(tp_scorerState.first);
+    //   robot.scorer.setDirection(tp_scorerState.second);
+    // }
 
     if (robot.master.get_digital_new_press(E_CONTROLLER_DIGITAL_LEFT)) {
       robot.master.clear_line(1);

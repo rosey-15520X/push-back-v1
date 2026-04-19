@@ -15,22 +15,22 @@ using namespace pros;
 #define RIGHT_MIDDLE_MOTOR_PORT 19
 #define RIGHT_BACK_MOTOR_PORT 18
 
-#define IMU_PORT 17
+#define IMU_PORT 8
 
 #define MOTOR_GEARSET v5::MotorGears::blue
-#define TRACK_WIDTH 15
+#define TRACK_WIDTH 14.5 // x 15.5
 #define WHEEL_TYPE lemlib::Omniwheel::NEW_325
-#define DRIVETRAIN_RPM 360  // Blue motors (600rpm) with 36:60 gearing = 360rpm at wheel
+#define DRIVETRAIN_RPM 450  // Blue motors (600rpm) with 36:60 gearing = 360rpm at wheel
 #define HORIZONTAL_DRIFT 2
 
 MotorGroup left_motor_group({
     -LEFT_FRONT_MOTOR_PORT,
     -LEFT_MIDDLE_MOTOR_PORT,
-    LEFT_BACK_MOTOR_PORT
+    -LEFT_BACK_MOTOR_PORT
 }, MOTOR_GEARSET, v5::MotorUnits::degrees);
 
 MotorGroup right_motor_group({
-    -RIGHT_FRONT_MOTOR_PORT,
+    RIGHT_FRONT_MOTOR_PORT,
     RIGHT_MIDDLE_MOTOR_PORT,
     RIGHT_BACK_MOTOR_PORT
 }, MOTOR_GEARSET, v5::MotorUnits::degrees);
@@ -60,7 +60,7 @@ lemlib::ControllerSettings lateral_controller(12, // proportional gain (kP)
                                               100, // small error range timeout, in milliseconds
                                               2, // large error range, in inches
                                               500, // large error range timeout, in milliseconds
-                                              20 // maximum acceleration (slew)
+                                              0 // maximum acceleration (slew) - 0 = no limit
 );
 // lemlib::ControllerSettings lateral_controller(10, // proportional gain (kP)
 //                                               0, // integral gain (kI)
