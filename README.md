@@ -1,4 +1,4 @@
-# Hello!
+# 15520X Mech It Happen 
 
 ## 🏆 Excellence Award — Swiss Championships 2025–2026
 Our team won the **Excellence Award** at the Swiss Championships, qualifying us for the VEX Robotics World Championships in St.Louis. 
